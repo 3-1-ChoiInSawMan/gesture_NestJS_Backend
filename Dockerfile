@@ -24,7 +24,7 @@ RUN npm ci --production && npm cache clean --force
 # RUNTIME
 FROM node:${NODE_VERSION}-alpine AS runtime
 
-ENV SERVICE_PORT=8082
+ENV SERVICE_PORT=8081
 ENV SPRING_SERVER_URL=http://localhost:8080
 ENV SECURITY_PUBLIC_KEY=YOUR_PUBLIC_KEY
 ENV SECURITY_CORS_ORIGIN=http://localhost:5173,http://localhost:8080,http://localhost:3000
@@ -36,6 +36,6 @@ COPY --from=build --chown=node:node /opt/app/node_modules node_modules/
 
 USER node
 
-EXPOSE 8082
+EXPOSE 8081
 
 CMD ["node", "dist/main"]
