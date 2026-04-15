@@ -13,8 +13,6 @@ async function bootstrap() {
     origin: process.env.SECURITY_CORS_ORIGIN?.split(',') ?? '*',
   });
   
-  console.log(configService.get<number>('SERVER_PORT'))
-
   await app.listen(configService.get<number>('SERVER_PORT') ?? 3000);
 }
 
