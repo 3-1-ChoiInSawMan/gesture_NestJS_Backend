@@ -63,5 +63,5 @@ jobs:
           git clone -b production https://github.com/3-1-ChoiInSawMan/gesture_NestJS_Backend .
           docker rm -f gesture-nestjs-application
           docker build -t gesture-nestjs-application .
-          docker run --name gesture-nestjs-application -d -p 8081:8081 gesture-nestjs-application
+          docker run --name gesture-nestjs-application -d -p 8080:8080 gesture-nestjs-application
           
