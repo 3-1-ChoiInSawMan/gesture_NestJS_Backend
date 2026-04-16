@@ -2,10 +2,15 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { HttpExceptionFilter } from './filters/http-exception.filter';
+import { AxiosExceptionFilter } from './filters/axios-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new AxiosExceptionFilter());
 
   app.useGlobalPipes(new ValidationPipe());
 
