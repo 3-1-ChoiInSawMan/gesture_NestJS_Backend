@@ -1,5 +1,7 @@
-import { Controller, Delete, Get, NotImplementedException, Param, Patch, Post, Query } from '@nestjs/common';
+import { Controller, Delete, Get, NotImplementedException, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { GetUser } from 'src/decorators/get-user.decorator';
+import { type JwtPayload } from 'src/common/jwt-payload.interface';
 
 @Controller({ path: '/api/users' })
 export class UsersController {
@@ -7,31 +9,71 @@ export class UsersController {
     private readonly usersService: UsersService,
   ) { };
 
-  /**
-   * 회원 탈퇴 컨트롤러
-   */
-  @Delete('withdraw')
-  handleWithdrawAccount() {
-    throw new NotImplementedException();
+  @UseGuards()
+  @Delete('/withdraw')
+  async handleWithdrawAccount(
+    @GetUser() user: JwtPayload
+  ) {
+    const { data, message } = await this.usersService.withdrawAccount(user.idx);
+
+    const _user = {
+      idx: data.idx,
+      nickname: data.nickname,
+      id: data.id,
+      is_deactivated: data.is_deactivated
+    };
+
+    return {
+      data: {
+        user: _user
+      },
+      message
+    };
   }
 
-  /**
-   * 회원 탈퇴 확인 컨트롤러
-   * @param code handleWithdrawAccount에 요청했을 때 생성된 UUID
-   */
-  @Get('withdraw')
-  handleConfirmWithdrawAccount(@Query('confirmationCode') code: string) {
-    throw new NotImplementedException();
+  @UseGuards()
+  @Get('/me')
+  async handleGetMyInformation(
+    @GetUser() user: JwtPayload
+  ) {
+    const { data, message } = await this.usersService.getMyInformation(user.idx);
+
+    const _user = {
+      idx: data.idx,
+      nickname: data.nickname,
+      id: data.id,
+      status_message: data.status_message,
+      profile_url: data.profile_url
+    };
+
+    return {
+      data: {
+        user: _user
+      },
+      message
+    };
   }
 
-  @Get(':userId')
-  handleGetUserInformation(@Param('userId') userId: string) {
-    throw new NotImplementedException();
-  }
+  @Get('/:userId')
+  async handleGetUserInformation(
+    @Param('userId', ParseIntPipe) userId: number
+  ) {
+    const { data, message } = await this.usersService.getUserInformation(userId);
 
-  @Get()
-  handleGetMyInformation() {
-    throw new NotImplementedException();
+    const user = {
+      idx: data.idx,
+      nickname: data.nickname,
+      id: data.id,
+      status_message: data.status_message,
+      profile_url: data.profile_url
+    };
+
+    return {
+      data: {
+        user
+      },
+      message
+    };
   }
 
   @Patch()
