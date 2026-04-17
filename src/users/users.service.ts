@@ -1,18 +1,24 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class UsersService {
+  private readonly SPRING_SERVER_URL: string;
+
   constructor(
     private readonly httpService: HttpService,
-  ) { };
+    private readonly configService: ConfigService,
+  ) {
+    this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
+  };
 
   async withdrawAccount(
     userId: number
   ) {
     const { data } = await firstValueFrom(
-      this.httpService.delete(`${process.env.SPRING_SERVER_URL}/users/withdraw`, {
+      this.httpService.delete(`${this.SPRING_SERVER_URL}/users/withdraw`, {
         headers: {
           'X-User-Id': userId
         }
@@ -29,7 +35,7 @@ export class UsersService {
     userId: number
   ) {
     const { data } = await firstValueFrom(
-      this.httpService.get(`${process.env.SPRING_SERVER_URL}/users/me`, {
+      this.httpService.get(`${this.SPRING_SERVER_URL}/users/me`, {
         headers: {
           'X-User-Id': userId
         }
@@ -46,7 +52,7 @@ export class UsersService {
     userId: number
   ) {
     const { data } = await firstValueFrom(
-      this.httpService.get(`${process.env.SPRING_SERVER_URL}/users/${userId}`)
+      this.httpService.get(`${this.SPRING_SERVER_URL}/users/${userId}`)
     );
 
     return {
