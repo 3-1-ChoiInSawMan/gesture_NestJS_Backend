@@ -60,4 +60,17 @@ export class UsersService {
       message: data.message
     };
   }
+
+  async getSpecifyUserInformation(
+    userId: string
+  ) {
+    const { data } = await firstValueFrom(
+      this.httpService.get(`${this.SPRING_SERVER_URL}/users?userId=${userId}`)
+    );
+
+    return {
+      data: data.data,
+      message: data.message
+    };
+  }
 }
