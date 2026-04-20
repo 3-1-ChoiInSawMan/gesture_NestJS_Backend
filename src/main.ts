@@ -10,8 +10,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
-  app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalFilters(new AxiosExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   app.useGlobalInterceptors(new GlobalResponseInterceptor());
 

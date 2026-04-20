@@ -87,7 +87,16 @@ export class UsersController {
   }
 
   @Get()
-  handleGetSpecifyUserInformation(@Query('userId') userId: string) {
-    throw new NotImplementedException();
+  async handleGetSpecifyUserInformation(
+    @Query('userId') userId: string
+  ) {
+    const { data, message } = await this.usersService.getSpecifyUserInformation(userId);
+
+    return {
+      data: {
+        users: data
+      },
+      message
+    };
   }
 }
