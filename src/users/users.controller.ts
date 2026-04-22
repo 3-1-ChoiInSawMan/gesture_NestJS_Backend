@@ -2,6 +2,7 @@ import { Controller, Delete, Get, NotImplementedException, Param, ParseIntPipe, 
 import { UsersService } from './users.service';
 import { GetUser } from 'src/decorators/get-user.decorator';
 import { type JwtPayload } from 'src/common/jwt-payload.interface';
+import { JwtGuard } from 'src/guards/jwt.guard';
 
 @Controller({ path: '/api/users' })
 export class UsersController {
@@ -9,7 +10,7 @@ export class UsersController {
     private readonly usersService: UsersService,
   ) { };
 
-  @UseGuards()
+  @UseGuards(JwtGuard)
   @Delete('/withdraw')
   async handleWithdrawAccount(
     @GetUser() user: JwtPayload
@@ -31,7 +32,7 @@ export class UsersController {
     };
   }
 
-  @UseGuards()
+  @UseGuards(JwtGuard)
   @Get('/me')
   async handleGetMyInformation(
     @GetUser() user: JwtPayload
