@@ -27,17 +27,35 @@ jobs:
     - name: Deploy Service
       run: |
         ssh ${{ secrets.EC2_HOST_ID_ROOT }}@${{ secrets.EC2_HOST_IP }} << 'EOF'
+          set -e
           rm -rf ~/nestjs-application && mkdir ~/nestjs-application
           cd ~/nestjs-application
           git clone -b production https://github.com/3-1-ChoiInSawMan/gesture_NestJS_Backend .
-          docker rm -f gesture-bff
+          docker rm -f gesture-bff || true
           docker build -t gesture-bff .
           docker run --name gesture-bff \
           -e "SECURITY_PUBLIC_KEY=${{ secrets.SECURITY_PUBLIC_KEY }}" \
           -e "SECURITY_CORS_ORIGIN=${{ vars.SECURITY_CORS_ORIGIN }}" \
           -e "SPRING_SERVER_URL=${{ vars.SPRING_SERVER_URL }}" \
           -e "SERVER_PORT=${{ vars.SERVER_PORT }}" \
-          -d -p "${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }}/
+          --restart unless-stopped \
+          -d -p "${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }}" \
+          gesture-bff
+        EOF
 
     - name: Check Service Health
-      run: curl -fsS http://localhost:${{ vars.SERVER_PORT }}/
+      run: |
+        ssh ${{ secrets.EC2_HOST_ID_ROOT }}@${{ secrets.EC2_HOST_IP }} << 'EOF'
+          set -e
+
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS "http://localhost:${{ vars.SERVER_PORT }}/" > /dev/null; then
+              exit 0
+            fi
+
+            sleep 3
+          done
+
+          docker logs gesture-bff
+          exit 1
+        EOF
