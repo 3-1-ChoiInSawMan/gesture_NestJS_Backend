@@ -33,13 +33,13 @@ jobs:
           docker rm -f gesture-bff
           docker build -t gesture-bff .
           docker run --name gesture-bff \
-          -e SECURITY_PUBLIC_KEY=${{ secrets.SECURITY_PUBLIC_KEY }} \
-          -e SECURITY_CORS_ORIGIN=${{ vars.SECURITY_CORS_ORIGIN }} \
-            -e SPRING_SERVER_URL=${{ vars.SPRING_SERVER_URL }} \
-            -e SERVER_PORT=${{ vars.SERVER_PORT }} \
-            -d -p ${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }} \
-            --restart unless-stopped \
-            gesture-bff
+          -e "SECURITY_PUBLIC_KEY=${{ secrets.SECURITY_PUBLIC_KEY }}" \
+          -e "SECURITY_CORS_ORIGIN=${{ vars.SECURITY_CORS_ORIGIN }}" \
+          -e "SPRING_SERVER_URL=${{ vars.SPRING_SERVER_URL }}" \
+          -e "SERVER_PORT=${{ vars.SERVER_PORT }}" \
+          -d -p "${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }}" \
+          --restart unless-stopped \
+          gesture-bff
 
     - name: Check Service Health
       run: curl -fsS ${{ vars.SPRING_SERVER_URL }} /
