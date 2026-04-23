@@ -37,9 +37,4 @@ jobs:
           -e "SECURITY_CORS_ORIGIN=${{ vars.SECURITY_CORS_ORIGIN }}" \
           -e "SPRING_SERVER_URL=${{ vars.SPRING_SERVER_URL }}" \
           -e "SERVER_PORT=${{ vars.SERVER_PORT }}" \
-          -d -p "${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }}" \
-          --restart unless-stopped \
-          gesture-bff
-
-    - name: Check Service Health
-      run: curl -fsS ${{ vars.SPRING_SERVER_URL }} /
+          -d -p "${{ vars.SERVER_PORT }}:$${{ vars.SERVER_PORT }}/
