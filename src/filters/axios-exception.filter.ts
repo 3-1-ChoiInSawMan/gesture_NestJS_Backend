@@ -15,15 +15,15 @@ export class AxiosExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    const data = error.response?.data!;
-    const code = data.code ?? 'COMMON_500';
-    const status = error.response?.status! ?? ErrorCode.COMMON_500;
+    const data = error.response?.data;
+    const code = data?.code ?? 'COMMON_500';
+    const status = error.response?.status ?? 500;
 
     response.status(status).json({
       success: false,
       statusCode: code,
       data: null,
-      message: data.message ?? ErrorCode[status],
+      message: data?.message ?? ErrorCode[status],
     });
   }
 }
