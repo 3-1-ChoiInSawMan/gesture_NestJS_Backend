@@ -45,17 +45,19 @@ jobs:
 
     - name: Check Service Health
       run: |
-        ssh ${{ secrets.EC2_HOST_ID_ROOT }}@${{ secrets.EC2_HOST_IP }} << 'EOF'
-          set -e
-
+        ssh -T -o LogLevel=ERROR ${{ secrets.EC2_HOST_ID_ROOT }}@${{ secrets.EC2_HOST_IP }} <<'EOF'
           for attempt in 1 2 3 4 5; do
             if curl -fsS "http://localhost:${{ vars.SERVER_PORT }}/" > /dev/null; then
+              echo "attempt $attempt success. BFF is healthy."
               exit 0
             fi
-
+            echo "attempt $attempt failed. retrying..."
             sleep 3
           done
 
-          docker logs gesture-bff
+          echo "=== docker ps ==="
+          docker ps -a | grep gesture-bff || true
+          echo "=== docker logs ==="
+          docker logs gesture-bff || true
           exit 1
         EOF
