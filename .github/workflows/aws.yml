@@ -2,7 +2,8 @@ name: Deploy to Amazon EC2
 
 on:
   push:
-    branches: [ "production" ]
+    branches: [ "main" ]
+    # branches: [ "production" ]
 
 permissions:
   contents: read
