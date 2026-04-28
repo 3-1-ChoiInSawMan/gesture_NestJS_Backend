@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
+import { AppControllerV1 } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -13,7 +13,7 @@ import { HttpModule } from '@nestjs/axios';
     AuthModule,
     UsersModule,
   ],
-  controllers: [AppController],
+  controllers: [AppControllerV1],
   providers: [AppService],
 })
 export class AppModule { }
