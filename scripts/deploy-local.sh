@@ -59,7 +59,7 @@ docker run --name "$CONTAINER" \
 # Health check
 echo "Health check"
 for attempt in 1 2 3 4 5; do
-  if curl -fsS "http://localhost:${PORT}/" > /dev/null; then
+  if curl -fsS "http://localhost:${PORT}/api/v1" > /dev/null; then
     echo "attempt $attempt success. BFF is healthy."
     if [[ "${1:-}" == "--logs" ]]; then
       echo "Following log. (To exit tty, press Ctrl+C, container will not stop)"

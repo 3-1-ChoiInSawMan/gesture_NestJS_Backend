@@ -4,8 +4,8 @@ import { GetUser } from 'src/decorators/get-user.decorator';
 import { type JwtPayload } from 'src/common/jwt-payload.interface';
 import { JwtGuard } from 'src/guards/jwt.guard';
 
-@Controller({ path: '/api/users' })
-export class UsersController {
+@Controller({ path: '/users', version: '1' })
+export class UsersControllerV1 {
   constructor (
     private readonly usersService: UsersService,
   ) { };

@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { AxiosExceptionFilter } from './filters/axios-exception.filter';
@@ -20,6 +20,12 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.SECURITY_CORS_ORIGIN?.split(',') ?? '*',
   });
+
+  app.setGlobalPrefix('/api');
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  })
   
   await app.listen(configService.get<number>('SERVER_PORT') ?? 3000);
 }
