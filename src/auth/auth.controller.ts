@@ -1,8 +1,8 @@
 import { Controller, NotImplementedException, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
-@Controller({ path: '/api/auth' })
-export class AuthController {
+@Controller({ path: '/auth', version: '1' })
+export class AuthControllerV1 {
   constructor (
     private readonly authService: AuthService,
   ) { };
