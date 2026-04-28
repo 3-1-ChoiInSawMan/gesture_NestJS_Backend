@@ -5,16 +5,17 @@ import { ConfigService } from '@nestjs/config';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { AxiosExceptionFilter } from './filters/axios-exception.filter';
 import { GlobalResponseInterceptor } from './interceptors/global-response.interceptor';
+import { Logger } from 'nestjs-pino';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
+
   const configService = app.get(ConfigService);
 
   app.useGlobalFilters(new AxiosExceptionFilter());
   app.useGlobalFilters(new HttpExceptionFilter());
-
   app.useGlobalInterceptors(new GlobalResponseInterceptor());
-
   app.useGlobalPipes(new ValidationPipe());
 
   app.enableCors({

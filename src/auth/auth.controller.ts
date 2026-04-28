@@ -1,15 +1,18 @@
 import { Controller, NotImplementedException, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { Logger } from 'nestjs-pino';
 
 @Controller({ path: '/auth', version: '1' })
 export class AuthControllerV1 {
   constructor (
     private readonly authService: AuthService,
+    private readonly logger: Logger,
   ) { };
   /* 계정 관련 로직 */
 
   @Post('login')
   handleLogin() {
+    this.logger.fatal('CHEEKI')
     throw new NotImplementedException();
   }
 
