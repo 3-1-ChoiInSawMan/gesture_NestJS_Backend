@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -9,14 +9,18 @@ import { Logger } from 'nestjs-pino';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const reflector = app.get(Reflector);
+
   app.useLogger(app.get(Logger));
 
   const configService = app.get(ConfigService);
 
   app.useGlobalFilters(new AxiosExceptionFilter());
   app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new GlobalResponseInterceptor());
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalInterceptors(new GlobalResponseInterceptor(reflector));
+  app.useGlobalPipes(new ValidationPipe({
+    transform: true
+  }));
 
   app.enableCors({
     origin: process.env.SECURITY_CORS_ORIGIN?.split(',') ?? '*',
