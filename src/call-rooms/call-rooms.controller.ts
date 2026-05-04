@@ -28,14 +28,13 @@ export class CallRoomsController {
 
     return {
       data: {
-        call_room: data,
+        room: data
       },
       message,
     };
   }
 
   // 통화방 생성
-  // form-data 전송 로직 필요
   @UseGuards(JwtGuard)
   @UseInterceptors(FileInterceptor('thumbnail_image'))
   @Post()
@@ -44,11 +43,25 @@ export class CallRoomsController {
     @Body() body: CreateCallRoomDto,
     @GetUser() user: JwtPayload
   ) {
-    const { data, message } = await this.callRoomsService.createCallRoom(file, body, user.idx);
+    const { data, uploadedFile } = await this.callRoomsService.createCallRoom(file, body, user.idx);
+
+    const roomEntity = data.data;
+    const message = data.message;
+
+    const room = {
+      room_idx: roomEntity.room_idx,
+      host_user_idx: roomEntity.host_user_idx,
+      title: roomEntity.title,
+      is_public: roomEntity.is_public,
+      category: roomEntity.category,
+      max_participant: roomEntity.max_participant,
+      thumbnail_url: uploadedFile?.file_url,
+      created_at: roomEntity.created_at
+    };
 
     return {
       data: {
-        call_room: data,
+        room
       },
       message,
     };
@@ -62,8 +75,10 @@ export class CallRoomsController {
     const { data, message } = await this.callRoomsService.getCallRooms(query);
 
     return {
-      data,
-      message,
+      data: {
+        rooms: data
+      },
+      message
     };
   }
 
@@ -76,7 +91,7 @@ export class CallRoomsController {
 
     return {
       data: {
-        call_rooms: data,
+        rooms: data,
       },
       message,
     };
@@ -91,9 +106,9 @@ export class CallRoomsController {
 
     return {
       data: {
-        call_room: data,
+        room: data,
       },
-      message,
+      message
     };
   }
 
@@ -107,16 +122,32 @@ export class CallRoomsController {
     @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
     @GetUser() user: JwtPayload
   ) {
-    const { data, message } = await this.callRoomsService.updateCallRoomById(file, body, roomIdx, user.idx);
+    const { data, uploadedFile } = await this.callRoomsService.updateCallRoomById(file, body, roomIdx, user.idx);
+
+    const roomEntity = data.data;
+    const message = data.message;
+
+    const room = {
+      room_idx: roomEntity.room_idx,
+      host_user_idx: roomEntity.host_user_idx,
+      title: roomEntity.title,
+      is_public: roomEntity.is_public,
+      category: roomEntity.category,
+      max_participant: roomEntity.max_participant,
+      thumbnail_url: uploadedFile?.file_url,
+      created_at: roomEntity.created_at
+    };
 
     return {
-      data,
-      message,
+      data: {
+        room
+      },
+      message
     };
   }
 
   // 통화방 삭제
-  @UseGuards()
+  @UseGuards(JwtGuard)
   @Delete('/:roomIdx')
   async handleDeleteCallRoomById(
     @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
@@ -126,9 +157,9 @@ export class CallRoomsController {
 
     return {
       data: {
-        call_room: data,
+        room: data,
       },
-      message,
+      message
     };
   }
 }

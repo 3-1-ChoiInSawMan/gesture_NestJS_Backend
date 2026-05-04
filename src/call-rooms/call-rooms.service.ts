@@ -9,6 +9,7 @@ import { GetCallRoomsByKeywordQueryDto } from './dto/request/get-call-room-by-ke
 import FormData from 'form-data';
 import { UpdateCallRoomDto } from './dto/request/update-call-room.dto';
 import { EntityType } from './enums/entity-type.enum';
+import { type UploadedFile } from 'src/common/uploaded-file.interface';
 
 @Injectable()
 export class CallRoomsService {
@@ -21,11 +22,11 @@ export class CallRoomsService {
     this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
   };
 
-  private async fileUpdate(
+  private async mediaUpload(
     file: Express.Multer.File,
     entityType: EntityType,
     userIdx: number
-  ) {
+  ): Promise<UploadedFile> {
     const formData = new FormData();
 
     formData.append('file', file.buffer, {
@@ -64,22 +65,18 @@ export class CallRoomsService {
       })
     );
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return data;
   }
 
-  // form-data 전송 로직 필요
   async createCallRoom(
     file: Express.Multer.File | undefined,
     body: CreateCallRoomDto,
     userIdx: number
   ) {
-    let uploadedFile = undefined;
+    let uploadedFile: UploadedFile | undefined;
 
     if (file) {
-      uploadedFile = await this.fileUpdate(file, EntityType.ROOM, userIdx);
+      uploadedFile = await this.mediaUpload(file, EntityType.ROOM, userIdx);
     }
     
     const { data } = await firstValueFrom(
@@ -91,11 +88,8 @@ export class CallRoomsService {
     );
 
     return {
-      data: {
-        call_room: data.data,
-        file: uploadedFile
-      },
-      message: data.message
+      data,
+      uploadedFile,
     };
   }
 
@@ -108,10 +102,7 @@ export class CallRoomsService {
       })
     );
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return data;
   }
 
   async getCallRoomsByKeyword(
@@ -123,10 +114,7 @@ export class CallRoomsService {
       })
     );
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return data;
   }
 
   async getCallRoomById(
@@ -136,10 +124,7 @@ export class CallRoomsService {
       this.httpService.get(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}`)
     );
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return data;
   }
 
   async updateCallRoomById(
@@ -148,10 +133,10 @@ export class CallRoomsService {
     roomIdx: number,
     userIdx: number,
   ) {
-    let uploadedFile = undefined;
+    let uploadedFile: UploadedFile | undefined;
 
     if (file) {
-      uploadedFile = await this.fileUpdate(file, EntityType.ROOM, userIdx);
+      uploadedFile = await this.mediaUpload(file, EntityType.ROOM, userIdx);
     }
     
     const { data } = await firstValueFrom(
@@ -163,11 +148,8 @@ export class CallRoomsService {
     );
 
     return {
-      data: {
-        call_room: data.data,
-        file: uploadedFile
-      },
-      message: data.message
+      data,
+      uploadedFile
     };
   }
 
@@ -183,9 +165,6 @@ export class CallRoomsService {
       })
     );
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return data;
   }
 }

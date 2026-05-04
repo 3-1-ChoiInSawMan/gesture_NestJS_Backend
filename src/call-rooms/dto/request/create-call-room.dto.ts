@@ -21,11 +21,11 @@ export class CreateCallRoomDto {
   })
   password: string;
 
-  @IsNotEmpty()
-  @IsNumber()
-  max_participant: number;
+  // @IsNotEmpty()
+  // @IsNumber()
+  // max_participant: number;
 
-  @IsNotEmpty()
-  @IsBoolean()
-  is_public: boolean;
+  // @IsNotEmpty()
+  // @IsBoolean()
+  // is_public: boolean;
 }
