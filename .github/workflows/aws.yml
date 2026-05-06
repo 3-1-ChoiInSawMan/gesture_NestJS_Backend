@@ -32,8 +32,14 @@ jobs:
           rm -rf ~/nestjs-application && mkdir ~/nestjs-application
           cd ~/nestjs-application
           git clone -b main https://github.com/3-1-ChoiInSawMan/gesture_NestJS_Backend .
+          git checkout "${{ github.sha }}"
+          git --no-pager log -1 --oneline
+          if grep -R "log.json\|pino/file" -n src Dockerfile; then
+            echo "The cloned deploy source still contains file logging config."
+            exit 1
+          fi
           docker rm -f gesture-bff || true
-          docker build -t gesture-bff .
+          docker build --no-cache -t gesture-bff .
           docker run --name gesture-bff \
           -e "NODE_ENV=${{ vars.NODE_ENV }}" \
           -e "SECURITY_PUBLIC_KEY=${{ secrets.SECURITY_PUBLIC_KEY }}" \

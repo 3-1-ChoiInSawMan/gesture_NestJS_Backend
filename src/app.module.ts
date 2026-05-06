@@ -9,6 +9,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { CallRoomsModule } from './call-rooms/call-rooms.module';
 
 const isProduction = process.env.NODE_ENV === 'production';
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 @Module({
   imports: [
@@ -17,18 +18,14 @@ const isProduction = process.env.NODE_ENV === 'production';
       pinoHttp: {
         name: 'Capstone BFF',
         level: isProduction ? 'info' : 'debug',
-        transport: {
-          targets: [
-            {
-              target: 'pino/file',
-              options: { destination: './log.json', mkdir: true },
-              level: isProduction ? 'info' : 'debug',
+        ...(isDevelopment
+          ? {
+            transport: {
+              target: 'pino-pretty',
+              options: {},
             },
-            ...(isProduction
-              ? []
-              : [{ target: 'pino-pretty', options: {}, level: 'debug' }]),
-          ],
-        },
+          }
+          : {}),
       },
     }),
     HttpModule,

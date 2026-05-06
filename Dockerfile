@@ -25,6 +25,7 @@ RUN npm ci --production && npm cache clean --force
 FROM node:${NODE_VERSION}-alpine AS runtime
 
 WORKDIR /opt/app
+RUN chown node:node /opt/app
 
 COPY --from=build --chown=node:node /opt/app/dist dist/
 COPY --from=build --chown=node:node /opt/app/node_modules node_modules/
