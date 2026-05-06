@@ -15,12 +15,12 @@ export class UsersService {
   };
 
   async withdrawAccount(
-    userId: number
+    userIdx: number
   ) {
     const { data } = await firstValueFrom(
       this.httpService.delete(`${this.SPRING_SERVER_URL}/users/withdraw`, {
         headers: {
-          'X-User-Id': userId
+          'X-User-Id': userIdx
         }
       })
     );
@@ -32,12 +32,12 @@ export class UsersService {
   }
 
   async getMyInformation(
-    userId: number
+    userIdx: number
   ) {
     const { data } = await firstValueFrom(
       this.httpService.get(`${this.SPRING_SERVER_URL}/users/me`, {
         headers: {
-          'X-User-Id': userId
+          'X-User-Id': userIdx
         }
       })
     );
@@ -49,10 +49,10 @@ export class UsersService {
   }
 
   async getUserInformation(
-    userId: number
+    userIdx: number
   ) {
     const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/users/${userId}`)
+      this.httpService.get(`${this.SPRING_SERVER_URL}/users/${userIdx}`)
     );
 
     return {

@@ -17,16 +17,9 @@ export class UsersControllerV1 {
   ) {
     const { data, message } = await this.usersService.withdrawAccount(user.idx);
 
-    const _user = {
-      idx: data.idx,
-      nickname: data.nickname,
-      id: data.id,
-      is_deactivated: data.is_deactivated
-    };
-
     return {
       data: {
-        user: _user
+        user: data
       },
       message
     };
@@ -39,39 +32,23 @@ export class UsersControllerV1 {
   ) {
     const { data, message } = await this.usersService.getMyInformation(user.idx);
 
-    const _user = {
-      idx: data.idx,
-      nickname: data.nickname,
-      id: data.id,
-      status_message: data.status_message,
-      profile_url: data.profile_url
-    };
-
     return {
       data: {
-        user: _user
+        user: data
       },
       message
     };
   }
 
-  @Get('/:userId')
+  @Get('/:userIdx')
   async handleGetUserInformation(
-    @Param('userId', ParseIntPipe) userId: number
+    @Param('userIdx', new ParseIntPipe()) userIdx: number
   ) {
-    const { data, message } = await this.usersService.getUserInformation(userId);
-
-    const user = {
-      idx: data.idx,
-      nickname: data.nickname,
-      id: data.id,
-      status_message: data.status_message,
-      profile_url: data.profile_url
-    };
+    const { data, message } = await this.usersService.getUserInformation(userIdx);
 
     return {
       data: {
-        user
+        user: data
       },
       message
     };

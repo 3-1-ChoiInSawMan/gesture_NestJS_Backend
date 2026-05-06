@@ -23,7 +23,7 @@ export class AxiosExceptionFilter implements ExceptionFilter {
       success: false,
       statusCode: code,
       data: null,
-      message: data?.message ?? ErrorCode[status],
+      message: data?.message ?? ErrorCode[code],
     });
   }
 }

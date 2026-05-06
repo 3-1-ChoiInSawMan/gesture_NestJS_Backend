@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { LoggerModule } from 'nestjs-pino';
+import { CallRoomsModule } from './call-rooms/call-rooms.module';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -33,6 +34,7 @@ const isProduction = process.env.NODE_ENV === 'production';
     HttpModule,
     AuthModule,
     UsersModule,
+    CallRoomsModule,
   ],
   controllers: [AppControllerV1],
   providers: [AppService],
