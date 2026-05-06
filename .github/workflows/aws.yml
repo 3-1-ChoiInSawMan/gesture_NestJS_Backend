@@ -35,6 +35,7 @@ jobs:
           docker rm -f gesture-bff || true
           docker build -t gesture-bff .
           docker run --name gesture-bff \
+          -e "NODE_ENV=${{ vars.NODE_ENV }}" \
           -e "SECURITY_PUBLIC_KEY=${{ secrets.SECURITY_PUBLIC_KEY }}" \
           -e "SECURITY_CORS_ORIGIN=${{ vars.SECURITY_CORS_ORIGIN }}" \
           -e "SPRING_SERVER_URL=${{ vars.SPRING_SERVER_URL }}" \
