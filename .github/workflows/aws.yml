@@ -31,7 +31,7 @@ jobs:
           set -e
           rm -rf ~/nestjs-application && mkdir ~/nestjs-application
           cd ~/nestjs-application
-          git clone -b production https://github.com/3-1-ChoiInSawMan/gesture_NestJS_Backend .
+          git clone -b main https://github.com/3-1-ChoiInSawMan/gesture_NestJS_Backend .
           docker rm -f gesture-bff || true
           docker build -t gesture-bff .
           docker run --name gesture-bff \
