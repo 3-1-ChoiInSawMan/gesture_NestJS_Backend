@@ -1,18 +1,19 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { Injectable, MessageEvent } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CreateNotificationDto } from './dto/request/create-notification.dto';
-import { firstValueFrom } from 'rxjs';
+import { finalize, firstValueFrom, from, map, merge, Subject } from 'rxjs';
 import { NotificationType } from './enum/notification-type.enum';
 import { UpdateNotificationSettingDto } from './dto/request/update-notification-setting.dto';
 
 @Injectable()
 export class NotificationsService {
   private readonly SPRING_SERVER_URL: string;
+  private readonly notificationStreams = new Map<number, Subject<MessageEvent>>();
   
   constructor(
     private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {
     this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
   };
@@ -28,15 +29,48 @@ export class NotificationsService {
       })
     );
 
+    const notification = data.data;
+
+    if (this.notificationStreams.has(notification.receiver_id)) {
+      const { data: notifications } = await this.getNotifications(notification.receiver_id);
+
+      this.emitToUser(notification.receiver_id, {
+        notifications
+      });
+    }
+
     return {
-      data: data.data,
+      data: notification,
       message: data.message
     };
+  }
+
+  subscribe(
+    userIdx: number
+  ) {
+    const subject = new Subject<MessageEvent>();
+
+    this.notificationStreams.set(userIdx, subject);
+
+    const initials = from(this.getNotifications(userIdx)).pipe(
+      map(({ data }) => ({
+        data: {
+          notifications: data,
+        },
+      })),
+    );
+
+    return merge(initials, subject.asObservable()).pipe(
+      finalize(() => {
+        this.notificationStreams.delete(userIdx);
+      }),
+    );
   }
 
   async getNotifications(
     userIdx: number
   ) {
+    
     const { data } = await firstValueFrom(
       this.httpService.get(`${this.SPRING_SERVER_URL}/notifications`, {
         headers: {
@@ -46,9 +80,21 @@ export class NotificationsService {
     );
     
     return {
-      data: data.data,
-      message: data.message
+      data: data.data
     };
+  }
+
+  emitToUser(
+    userIdx: number,
+    payload: object
+  ) {
+    const subject = this.notificationStreams.get(userIdx);
+
+    if (!subject) return;
+
+    subject.next({
+      data: payload
+    });
   }
 
   async readNotification(

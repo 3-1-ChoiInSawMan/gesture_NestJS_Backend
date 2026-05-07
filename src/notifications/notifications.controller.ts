@@ -4,7 +4,6 @@ import { JwtGuard } from 'src/guards/jwt.guard';
 import { GetUser } from 'src/decorators/get-user.decorator';
 import { type JwtPayload } from 'src/common/jwt-payload.interface';
 import { CreateNotificationDto } from './dto/request/create-notification.dto';
-import { from, map, switchMap, timer } from 'rxjs';
 import { NotificationType } from './enum/notification-type.enum';
 import { UpdateNotificationSettingDto } from './dto/request/update-notification-setting.dto';
 
@@ -37,14 +36,7 @@ export class NotificationsController {
   async handleGetNotifications(
     @GetUser() user: JwtPayload
   ) {
-    return timer(0, 3000).pipe(
-      switchMap(() => from(this.notificationsService.getNotifications(user.idx))),
-      map(({ data }) => ({
-        data: {
-          notifications: data
-        }
-      }))
-    );
+    return this.notificationsService.subscribe(user.idx);
   }
 
   // 알림 읽음 처리
