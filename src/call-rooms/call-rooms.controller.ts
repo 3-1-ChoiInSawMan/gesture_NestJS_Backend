@@ -43,25 +43,16 @@ export class CallRoomsController {
     @Body() body: CreateCallRoomDto,
     @GetUser() user: JwtPayload
   ) {
-    const { data, uploadedFile } = await this.callRoomsService.createCallRoom(file, body, user.idx);
+    const { data, message, fileUUID } = await this.callRoomsService.createCallRoom(file, body, user.idx);
 
-    const roomEntity = data.data;
-    const message = data.message;
-
-    const room = {
-      room_idx: roomEntity.room_idx,
-      host_user_idx: roomEntity.host_user_idx,
-      title: roomEntity.title,
-      is_public: roomEntity.is_public,
-      category: roomEntity.category,
-      max_participant: roomEntity.max_participant,
-      thumbnail_url: uploadedFile?.file_url,
-      created_at: roomEntity.created_at
+    const _room = {
+      ...data,
+      thumbnail_uuid: fileUUID
     };
 
     return {
       data: {
-        room
+        room: _room
       },
       message,
     };
@@ -122,25 +113,16 @@ export class CallRoomsController {
     @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
     @GetUser() user: JwtPayload
   ) {
-    const { data, uploadedFile } = await this.callRoomsService.updateCallRoomById(file, body, roomIdx, user.idx);
+    const { data, message, fileUUID } = await this.callRoomsService.updateCallRoomById(file, body, roomIdx, user.idx);
 
-    const roomEntity = data.data;
-    const message = data.message;
-
-    const room = {
-      room_idx: roomEntity.room_idx,
-      host_user_idx: roomEntity.host_user_idx,
-      title: roomEntity.title,
-      is_public: roomEntity.is_public,
-      category: roomEntity.category,
-      max_participant: roomEntity.max_participant,
-      thumbnail_url: uploadedFile?.file_url,
-      created_at: roomEntity.created_at
+    const _room = {
+      ...data,
+      thumbnail_uuid: fileUUID
     };
 
     return {
       data: {
-        room
+        room: _room
       },
       message
     };

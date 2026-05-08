@@ -6,10 +6,8 @@ import { ConfigService } from '@nestjs/config';
 import { JoinCallRoomDto } from './dto/request/join-call-room.dto';
 import { GetCallRoomsQueryDto } from './dto/request/get-call-rooms-query.dto';
 import { GetCallRoomsByKeywordQueryDto } from './dto/request/get-call-room-by-keyword-query.dto';
-import FormData from 'form-data';
 import { UpdateCallRoomDto } from './dto/request/update-call-room.dto';
-import { EntityType } from './enums/entity-type.enum';
-import { type UploadedFile } from 'src/common/uploaded-file.interface';
+import { MediaService } from 'src/media/media.service';
 
 @Injectable()
 export class CallRoomsService {
@@ -18,39 +16,10 @@ export class CallRoomsService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly mediaService: MediaService,
   ) {
     this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
   };
-
-  private async mediaUpload(
-    file: Express.Multer.File,
-    entityType: EntityType,
-    userIdx: number
-  ): Promise<UploadedFile> {
-    const formData = new FormData();
-
-    formData.append('file', file.buffer, {
-      filename: file.originalname,
-      contentType: file.mimetype,
-    });
-
-    const { data } = await firstValueFrom(
-      this.httpService.post(`${this.SPRING_SERVER_URL}/medias/upload`,
-        formData,
-        {
-          headers: {
-            ...formData.getHeaders(),
-            'X-User-Id': userIdx
-          },
-          params: {
-            entityType
-          }
-        }
-      )
-    );
-
-    return data.data;
-  }
 
   async joinCallRoom(
     body: JoinCallRoomDto,
@@ -73,14 +42,13 @@ export class CallRoomsService {
     body: CreateCallRoomDto,
     userIdx: number
   ) {
-    let uploadedFile: UploadedFile | undefined;
-
-    if (file) {
-      uploadedFile = await this.mediaUpload(file, EntityType.ROOM, userIdx);
-    }
+    const fileUUID = file ? await this.mediaService.mediaUpload(file, userIdx) : undefined;
     
     const { data } = await firstValueFrom(
-      this.httpService.post(`${this.SPRING_SERVER_URL}/rooms`, body, {
+      this.httpService.post(`${this.SPRING_SERVER_URL}/rooms`, {
+        ...body,
+        thumbnail_uuid: fileUUID
+      }, {
         headers: {
           'X-User-Id': userIdx
         }
@@ -88,8 +56,8 @@ export class CallRoomsService {
     );
 
     return {
-      data,
-      uploadedFile,
+      ...data,
+      fileUUID
     };
   }
 
@@ -133,14 +101,13 @@ export class CallRoomsService {
     roomIdx: number,
     userIdx: number,
   ) {
-    let uploadedFile: UploadedFile | undefined;
-
-    if (file) {
-      uploadedFile = await this.mediaUpload(file, EntityType.ROOM, userIdx);
-    }
+    const fileUUID = file ? await this.mediaService.mediaUpload(file, userIdx) : undefined;
     
     const { data } = await firstValueFrom(
-      this.httpService.patch(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}`, body, {
+      this.httpService.patch(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}`, {
+        ...body,
+        thumbnail_uuid: fileUUID
+      }, {
         headers: {
           'X-User-Id': userIdx
         }
@@ -148,8 +115,8 @@ export class CallRoomsService {
     );
 
     return {
-      data,
-      uploadedFile
+      ...data,
+      fileUUID
     };
   }
 

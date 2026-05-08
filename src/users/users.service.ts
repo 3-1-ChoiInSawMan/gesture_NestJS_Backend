@@ -2,6 +2,9 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+import { UpdatePasswordDto } from './dto/request/update-password.dto';
+import { UpdateMyInformationDto } from './dto/request/update-my-information.dto';
+import { MediaService } from 'src/media/media.service';
 
 @Injectable()
 export class UsersService {
@@ -10,6 +13,7 @@ export class UsersService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly mediaService: MediaService,
   ) {
     this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
   };
@@ -25,10 +29,7 @@ export class UsersService {
       })
     );
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return data;
   }
 
   async getMyInformation(
@@ -42,10 +43,7 @@ export class UsersService {
       })
     );
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return data;
   }
 
   async getUserInformation(
@@ -55,10 +53,46 @@ export class UsersService {
       this.httpService.get(`${this.SPRING_SERVER_URL}/users/${userIdx}`)
     );
 
+    return data;
+  }
+
+  async updateMyInformation(
+    file: Express.Multer.File | undefined,
+    body: UpdateMyInformationDto,
+    userIdx: number
+  ) {
+    const fileUUID = file ? await this.mediaService.mediaUpload(file, userIdx) : undefined;
+
+    const { data } = await firstValueFrom(
+      this.httpService.patch(`${this.SPRING_SERVER_URL}/users/me`, {
+        ...body,
+        profile_image_uuid: fileUUID
+      }, {
+        headers: {
+          'X-User-Id': userIdx
+        }
+      })
+    );
+
     return {
-      data: data.data,
-      message: data.message
+      ...data,
+      fileUUID
     };
+  }
+
+  async updatePassword(
+    body: UpdatePasswordDto,
+    userIdx: number
+  ) {
+    const { data } = await firstValueFrom(
+      this.httpService.patch(`${this.SPRING_SERVER_URL}/users/password`, body, {
+        headers: {
+          'X-User-Id': userIdx
+        }
+      })
+    );
+
+    return data;
   }
 
   async getSpecifyUserInformation(
@@ -68,9 +102,6 @@ export class UsersService {
       this.httpService.get(`${this.SPRING_SERVER_URL}/users?userId=${userId}`)
     );
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return data;
   }
 }
