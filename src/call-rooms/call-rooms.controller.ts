@@ -162,4 +162,21 @@ export class CallRoomsController {
       message
     };
   }
+
+  // 통화방 나가기
+  @UseGuards(JwtGuard)
+  @Delete('/:roomIdx/leave')
+  async handleLeaveCallRoomById(
+    @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
+    @GetUser() user: JwtPayload
+  ) {
+    const { data, message } = await this.callRoomsService.leaveCallRoomById(roomIdx, user.idx);
+
+    return {
+      data: {
+        room: data,
+      },
+      message
+    };
+  }
 }

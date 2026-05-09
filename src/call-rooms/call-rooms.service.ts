@@ -167,4 +167,19 @@ export class CallRoomsService {
 
     return data;
   }
+
+  async leaveCallRoomById(
+    roomIdx: number,
+    userIdx: number
+  ) {
+    const { data } = await firstValueFrom(
+      this.httpService.delete(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}/leave`, {
+        headers: {
+          'X-User-Id': userIdx
+        }
+      })
+    );
+
+    return data;
+  }
 }
