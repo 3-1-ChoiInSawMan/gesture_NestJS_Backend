@@ -1,8 +1,11 @@
-import { Controller, Delete, Get, NotImplementedException, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { GetUser } from 'src/decorators/get-user.decorator';
 import { type JwtPayload } from 'src/common/jwt-payload.interface';
 import { JwtGuard } from 'src/guards/jwt.guard';
+import { UpdatePasswordDto } from './dto/request/update-password.dto';
+import { UpdateMyInformationDto } from './dto/request/update-my-information.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller({ path: '/users', version: '1' })
 export class UsersControllerV1 {
@@ -21,7 +24,7 @@ export class UsersControllerV1 {
       data: {
         user: data
       },
-      message
+      message,
     };
   }
 
@@ -36,7 +39,7 @@ export class UsersControllerV1 {
       data: {
         user: data
       },
-      message
+      message,
     };
   }
 
@@ -50,18 +53,47 @@ export class UsersControllerV1 {
       data: {
         user: data
       },
-      message
+      message,
     };
   }
 
-  @Patch()
-  handleUpdateMyInformation() {
-    throw new NotImplementedException();
+  @UseGuards(JwtGuard)
+  @UseInterceptors(FileInterceptor('profile_image'))
+  @Patch('/me')
+  async handleUpdateMyInformation(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: UpdateMyInformationDto,
+    @GetUser() user: JwtPayload
+  ) {
+    const { data, message, fileUUID } = await this.usersService.updateMyInformation(file, body, user.idx);
+
+    const _user = {
+      ...data,
+      profile_uuid: fileUUID
+    };
+
+    return {
+      data: {
+        user: _user
+      },
+      message,
+    };
   }
 
-  @Patch('password')
-  handleUpdatePassword() {
-    throw new NotImplementedException();
+  @UseGuards(JwtGuard)
+  @Patch('/password')
+  async handleUpdatePassword(
+    @Body() body: UpdatePasswordDto,
+    @GetUser() user: JwtPayload
+  ) {
+    const { data, message } = await this.usersService.updatePassword(body, user.idx);
+
+    return {
+      data: {
+        user: data
+      },
+      message,
+    };
   }
 
   @Get()
@@ -74,7 +106,7 @@ export class UsersControllerV1 {
       data: {
         users: data
       },
-      message
+      message,
     };
   }
 }
