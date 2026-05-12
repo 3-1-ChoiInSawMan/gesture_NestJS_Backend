@@ -49,12 +49,14 @@ export class MediasService {
     mediaUUID: string,
     userIdx: number
   ) {
+    const _mediaUUID = encodeURIComponent(mediaUUID);
+
     const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/medias/${mediaUUID}`, {
+      this.httpService.get(`${this.SPRING_SERVER_URL}/medias/${_mediaUUID}`, {
         headers: {
           'X-User-Id': userIdx
-        }}
-      )
+        }
+      })
     );
 
     return data;
