@@ -1,11 +1,11 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import FormData from 'form-data';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable()
-export class MediaService {
+export class MediasService {
   private readonly SPRING_SERVER_URL: string;
     
   constructor(
@@ -15,10 +15,14 @@ export class MediaService {
     this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
   };
 
-  async mediaUpload(
-    file: Express.Multer.File,
+  async uploadMedia(
+    file: Express.Multer.File | undefined,
     userIdx: number
   ) {
+    if (!file) {
+      throw new BadRequestException('업로드할 파일이 없습니다.');
+    }
+
     const formData = new FormData();
 
     formData.append('file', file.buffer, {
@@ -38,6 +42,23 @@ export class MediaService {
       )
     );
 
-    return data.data.media_uuid;
+    return data;
+  }
+
+  async getMediaByUUID(
+    mediaUUID: string,
+    userIdx: number
+  ) {
+    const _mediaUUID = encodeURIComponent(mediaUUID);
+
+    const { data } = await firstValueFrom(
+      this.httpService.get(`${this.SPRING_SERVER_URL}/medias/${_mediaUUID}`, {
+        headers: {
+          'X-User-Id': userIdx
+        }
+      })
+    );
+
+    return data;
   }
 }
