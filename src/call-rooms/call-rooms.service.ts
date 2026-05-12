@@ -7,7 +7,7 @@ import { JoinCallRoomDto } from './dto/request/join-call-room.dto';
 import { GetCallRoomsQueryDto } from './dto/request/get-call-rooms-query.dto';
 import { GetCallRoomsByKeywordQueryDto } from './dto/request/get-call-room-by-keyword-query.dto';
 import { UpdateCallRoomDto } from './dto/request/update-call-room.dto';
-import { MediaService } from 'src/media/media.service';
+import { MediasService } from 'src/medias/medias.service';
 
 @Injectable()
 export class CallRoomsService {
@@ -16,7 +16,7 @@ export class CallRoomsService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
-    private readonly mediaService: MediaService,
+    private readonly mediasService: MediasService,
   ) {
     this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
   };
@@ -42,12 +42,12 @@ export class CallRoomsService {
     body: CreateCallRoomDto,
     userIdx: number
   ) {
-    const fileUUID = file ? await this.mediaService.mediaUpload(file, userIdx) : undefined;
+    const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
     
     const { data } = await firstValueFrom(
       this.httpService.post(`${this.SPRING_SERVER_URL}/rooms`, {
         ...body,
-        thumbnail_uuid: fileUUID
+        thumbnail_uuid: _file.data.file_uuid
       }, {
         headers: {
           'X-User-Id': userIdx
@@ -57,7 +57,7 @@ export class CallRoomsService {
 
     return {
       ...data,
-      fileUUID
+      fileUUID: _file.data.file_uuid
     };
   }
 
@@ -101,12 +101,12 @@ export class CallRoomsService {
     roomIdx: number,
     userIdx: number,
   ) {
-    const fileUUID = file ? await this.mediaService.mediaUpload(file, userIdx) : undefined;
+    const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
     
     const { data } = await firstValueFrom(
       this.httpService.patch(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}`, {
         ...body,
-        thumbnail_uuid: fileUUID
+        thumbnail_uuid: _file.data.file_uuid
       }, {
         headers: {
           'X-User-Id': userIdx
@@ -116,7 +116,7 @@ export class CallRoomsService {
 
     return {
       ...data,
-      fileUUID
+      fileUUID: _file.data.file_uuid
     };
   }
 

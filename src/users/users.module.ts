@@ -3,10 +3,14 @@ import { UsersControllerV1 } from './users.controller';
 import { UsersService } from './users.service';
 import { HttpModule } from '@nestjs/axios';
 import { AuthModule } from 'src/auth/auth.module';
-import { MediaModule } from 'src/media/media.module';
+import { MediasModule } from 'src/medias/medias.module';
 
 @Module({
-  imports: [HttpModule, AuthModule, MediaModule],
+  imports: [
+    HttpModule,
+    AuthModule,
+    MediasModule
+  ],
   controllers: [UsersControllerV1],
   providers: [UsersService],
 })

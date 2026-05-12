@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { UpdatePasswordDto } from './dto/request/update-password.dto';
 import { UpdateMyInformationDto } from './dto/request/update-my-information.dto';
-import { MediaService } from 'src/media/media.service';
+import { MediasService } from 'src/medias/medias.service';
 
 @Injectable()
 export class UsersService {
@@ -13,7 +13,7 @@ export class UsersService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
-    private readonly mediaService: MediaService,
+    private readonly mediasService: MediasService,
   ) {
     this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
   };
@@ -61,12 +61,12 @@ export class UsersService {
     body: UpdateMyInformationDto,
     userIdx: number
   ) {
-    const fileUUID = file ? await this.mediaService.mediaUpload(file, userIdx) : undefined;
+    const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
 
     const { data } = await firstValueFrom(
       this.httpService.patch(`${this.SPRING_SERVER_URL}/users/me`, {
         ...body,
-        profile_image_uuid: fileUUID
+        profile_image_uuid: _file.data.file_uuid
       }, {
         headers: {
           'X-User-Id': userIdx
@@ -76,7 +76,7 @@ export class UsersService {
 
     return {
       ...data,
-      fileUUID
+      fileUUID: _file.data.file_uuid
     };
   }
 

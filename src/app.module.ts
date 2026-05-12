@@ -8,7 +8,7 @@ import { HttpModule } from '@nestjs/axios';
 import { LoggerModule } from 'nestjs-pino';
 import { CallRoomsModule } from './call-rooms/call-rooms.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { MediaModule } from './media/media.module';
+import { MediasModule } from './medias/medias.module';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -35,7 +35,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
     UsersModule,
     CallRoomsModule,
     NotificationsModule,
-    MediaModule,
+    MediasModule,
   ],
   controllers: [AppControllerV1],
   providers: [AppService],
