@@ -1,4 +1,5 @@
 import { UseGuards } from '@nestjs/common';
+import { TokenExpiredError } from '@nestjs/jwt';
 import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
 import { Logger } from 'nestjs-pino';
 import { Socket } from 'socket.io';
@@ -36,18 +37,16 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const payload = await this.authService.verifyToken(token);
 
-      if (!payload) {
-        disconnectWithAuthError(client, 'AUTH_001');
-
-        return;
-      }
-
       client.data.user = payload;
       
       this.logger.log(`Connected: ${client.id}`);
 
       return;
-    } catch {
+    } catch (error) {
+      if (error instanceof TokenExpiredError) {
+        disconnectWithAuthError(client, 'AUTH_002');
+      }
+      
       disconnectWithAuthError(client, 'AUTH_001');
 
       return;
