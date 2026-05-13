@@ -7,7 +7,7 @@ import { ErrorCode } from 'src/common/error-code';
 import { JwtPayload } from 'src/common/jwt-payload.interface';
 import { WsGuard } from 'src/guards/ws.guard';
 
-@WebSocketGateway(80, {
+@WebSocketGateway({
   namespace: '/calls'
 })
 export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
