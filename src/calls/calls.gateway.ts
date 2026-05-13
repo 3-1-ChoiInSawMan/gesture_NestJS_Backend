@@ -1,24 +1,19 @@
 import { UseGuards } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
+import { Logger } from 'nestjs-pino';
 import { Socket } from 'socket.io';
-import { ErrorCode } from 'src/common/error-code';
-import { JwtPayload } from 'src/common/jwt-payload.interface';
+import { AuthService } from 'src/auth/auth.service';
+import { disconnectWithAuthError } from 'src/common/ws-error.util';
 import { WsGuard } from 'src/guards/ws.guard';
 
 @WebSocketGateway({
   namespace: '/calls'
 })
 export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  private readonly publicKey: string;
-
   constructor(
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
-  ) {
-    this.publicKey = this.configService.getOrThrow<string>('SECURITY_PUBLIC_KEY').replace(/\\n/g, '\n');
-  };
+    private readonly authService: AuthService,
+    private readonly logger: Logger,
+  ) { };
 
   @UseGuards(WsGuard)
   @SubscribeMessage('frame')
@@ -33,40 +28,33 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const token = client.handshake.auth.token || client.handshake.headers.authorization?.split(' ')[1];
 
     if (!token) {
-      client.emit('error', {
-        statusCode: 'AUTH_007',
-        message: ErrorCode.AUTH_007,
-      });
-
-      client.disconnect();
+      disconnectWithAuthError(client, 'AUTH_007');
 
       return;
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
-        publicKey: this.publicKey,
-        algorithms: ['RS256'],
-      });
+      const payload = await this.authService.verifyToken(token);
+
+      if (!payload) {
+        disconnectWithAuthError(client, 'AUTH_001');
+
+        return;
+      }
 
       client.data.user = payload;
-
-      console.log(`Connected: ${client.id}`);
+      
+      this.logger.log(`Connected: ${client.id}`);
 
       return;
     } catch {
-      client.emit('error', {
-        statusCode: 'AUTH_001',
-        message: ErrorCode.AUTH_001,
-      });
-
-      client.disconnect();
+      disconnectWithAuthError(client, 'AUTH_001');
 
       return;
     }
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`Disconnection: ${client.id}`);
+    this.logger.log(`Disconnected: ${client.id}`);
   }
 }

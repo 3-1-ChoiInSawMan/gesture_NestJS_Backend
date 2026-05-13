@@ -9,6 +9,11 @@ import { WsGuard } from 'src/guards/ws.guard';
   imports: [JwtModule.register({})],
   controllers: [AuthControllerV1],
   providers: [AuthService, JwtGuard, WsGuard],
-  exports: [JwtModule, JwtGuard, WsGuard],
+  exports: [
+    JwtModule,
+    JwtGuard,
+    WsGuard,
+    AuthService,
+  ],
 })
 export class AuthModule {}
