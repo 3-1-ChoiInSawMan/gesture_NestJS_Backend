@@ -9,6 +9,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { CallRoomsModule } from './call-rooms/call-rooms.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MediasModule } from './medias/medias.module';
+import { CallsModule } from './calls/calls.module';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -36,6 +37,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
     CallRoomsModule,
     NotificationsModule,
     MediasModule,
+    CallsModule,
   ],
   controllers: [AppControllerV1],
   providers: [AppService],
