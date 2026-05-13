@@ -1,13 +1,7 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Request } from 'express';
 import { TokenExpiredError } from 'jsonwebtoken';
+import { AuthService } from 'src/auth/auth.service';
 import { ErrorCode } from 'src/common/error-code';
 import type { JwtPayload } from 'src/common/jwt-payload.interface';
 
@@ -17,14 +11,9 @@ interface AuthenticatedRequest extends Request {
 
 @Injectable()
 export class JwtGuard implements CanActivate {
-  private readonly publicKey: string;
-
   constructor(
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
-  ) {
-    this.publicKey = this.configService.getOrThrow<string>('SECURITY_PUBLIC_KEY').replace(/\\n/g, '\n');
-  }
+    private readonly authService: AuthService,
+  ) { };
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -35,10 +24,7 @@ export class JwtGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
-        publicKey: this.publicKey,
-        algorithms: ['RS256'],
-      });
+      const payload = await this.authService.verifyToken(token);
 
       request.user = payload;
 
