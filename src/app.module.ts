@@ -6,9 +6,17 @@ import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { LoggerModule } from 'nestjs-pino';
+<<<<<<< HEAD
 import { FriendModule } from './friend/friend.module';
+=======
+import { CallRoomsModule } from './call-rooms/call-rooms.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { MediasModule } from './medias/medias.module';
+import { CallsModule } from './calls/calls.module';
+>>>>>>> main
 
 const isProduction = process.env.NODE_ENV === 'production';
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 @Module({
   imports: [
@@ -17,24 +25,27 @@ const isProduction = process.env.NODE_ENV === 'production';
       pinoHttp: {
         name: 'Capstone BFF',
         level: isProduction ? 'info' : 'debug',
-        transport: {
-          targets: [
-            {
-              target: 'pino/file',
-              options: { destination: './log.json', mkdir: true },
-              level: isProduction ? 'info' : 'debug',
+        ...(isDevelopment
+          ? {
+            transport: {
+              target: 'pino-pretty',
+              options: {},
             },
-            ...(isProduction
-              ? []
-              : [{ target: 'pino-pretty', options: {}, level: 'debug' }]),
-          ],
-        },
+          }
+          : {}),
       },
     }),
     HttpModule,
     AuthModule,
     UsersModule,
+<<<<<<< HEAD
     FriendModule,
+=======
+    CallRoomsModule,
+    NotificationsModule,
+    MediasModule,
+    CallsModule,
+>>>>>>> main
   ],
   controllers: [AppControllerV1],
   providers: [AppService],

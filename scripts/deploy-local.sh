@@ -48,6 +48,7 @@ docker rm -f "$CONTAINER" > /dev/null 2>&1 || true
 
 echo "Running container: $CONTAINER on $PORT"
 docker run --name "$CONTAINER" \
+  -e "NODE_ENV=${NODE_ENV}" \
   -e "SECURITY_PUBLIC_KEY=${SECURITY_PUBLIC_KEY}" \
   -e "SECURITY_CORS_ORIGIN=${SECURITY_CORS_ORIGIN}" \
   -e "SPRING_SERVER_URL=${SPRING_SERVER_URL}" \
