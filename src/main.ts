@@ -31,6 +31,9 @@ async function bootstrap() {
     type: VersioningType.URI,
     defaultVersion: '1',
   })
+
+  const logger = app.get(Logger)
+  logger.log(`Running environment: ${process.env.NODE_ENV}`)
   
   await app.listen(configService.get<number>('SERVER_PORT') ?? 3000);
 }

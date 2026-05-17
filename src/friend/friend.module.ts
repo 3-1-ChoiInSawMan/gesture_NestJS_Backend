@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { FriendController } from './friend.controller';
+import { FriendControllerV1 } from './friend.controller';
 import { FriendService } from './friend.service';
 import { HttpModule } from '@nestjs/axios';
-import { JwtModule } from '@nestjs/jwt';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
-  imports: [HttpModule, JwtModule],
-  controllers: [FriendController],
+  imports: [HttpModule, AuthModule],
+  controllers: [FriendControllerV1],
   providers: [FriendService]
 })
 export class FriendModule {}

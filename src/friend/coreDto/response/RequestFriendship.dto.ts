@@ -1,4 +1,6 @@
-export class FriendRequestResponse {
+import { FriendStatus } from "src/friend/enum/FriendStatus.enum";
+
+export class RequestFriendshipResponse {
   success: boolean;
 
 
@@ -6,7 +8,7 @@ export class FriendRequestResponse {
     friend_request_idx: number;
     requester_idx: number;
     receiver_idx: number;
-    status: FriendRequestResponse;
+    status: FriendStatus;
     created_at: Date;
   };
 
