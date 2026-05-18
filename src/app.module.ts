@@ -40,7 +40,6 @@ const isDevelopment = process.env.NODE_ENV === 'development';
     NotificationsModule,
     MediasModule,
     CallsModule,
-    CoreHttpModule,
   ],
   controllers: [AppControllerV1],
   providers: [AppService],
