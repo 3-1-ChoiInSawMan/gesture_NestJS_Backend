@@ -1,11 +1,12 @@
 import { UseGuards } from '@nestjs/common';
 import { TokenExpiredError } from '@nestjs/jwt';
-import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
+import { MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
 import { Logger } from 'nestjs-pino';
 import { Socket } from 'socket.io';
 import { AuthService } from 'src/auth/auth.service';
 import { disconnectWithAuthError } from 'src/common/ws-error.util';
 import { WsGuard } from 'src/guards/ws.guard';
+import { CallsService } from './calls.service';
 
 @WebSocketGateway({
   namespace: '/calls'
@@ -13,16 +14,16 @@ import { WsGuard } from 'src/guards/ws.guard';
 export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly authService: AuthService,
+    private readonly callsService: CallsService,
     private readonly logger: Logger,
   ) { };
 
   @UseGuards(WsGuard)
-  @SubscribeMessage('frame')
-  handleMessage(
-    @MessageBody() frame: Buffer,
-    @ConnectedSocket() client: Socket,
+  @SubscribeMessage('send_frame')
+  handleSendFrame(
+    @MessageBody() frame: Object,
   ) {
-    // AI 서버 프레임 전송 로직 구현 예정
+    this.callsService.sendFrame(frame);
   }
 
   async handleConnection(client: Socket) {
@@ -41,10 +42,14 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       
       this.logger.log(`Connected: ${client.id}`);
 
+      this.callsService.connectSocket(client);
+
       return;
     } catch (error) {
       if (error instanceof TokenExpiredError) {
         disconnectWithAuthError(client, 'AUTH_002');
+
+        return;
       }
       
       disconnectWithAuthError(client, 'AUTH_001');
