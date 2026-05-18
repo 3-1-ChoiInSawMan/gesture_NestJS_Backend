@@ -1,61 +1,51 @@
-import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { firstValueFrom } from 'rxjs';
+import { CoreResponse } from 'src/common/core-response.interface';
+import { CoreHttpService } from 'src/core-http/core-http.service';
+import { GetCallParticipants } from './dto/core/response/GetCallParticipants.interface';
+import { JoinCall } from './dto/core/response/JoinCall.interface';
+import { LeaveCall } from './dto/core/response/LeaveCall.interface';
 
 @Injectable()
 export class CallsService {
-  private readonly SPRING_SERVER_URL: string;
-
   constructor(
-    private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
-  ) {
-    this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
-  };
+    private readonly coreHttpService: CoreHttpService,
+  ) { };
 
   async joinCall(
     roomIdx: number,
     userIdx: number,
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.post(`${this.SPRING_SERVER_URL}/calls/${roomIdx}/join`, undefined, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
+    const response = await this.coreHttpService.post<CoreResponse<JoinCall>>(`/calls/${roomIdx}/join`, undefined, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
-    return data;
+    return response;
   }
 
   async leaveCall(
     roomIdx: number,
     userIdx: number,
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.post(`${this.SPRING_SERVER_URL}/calls/${roomIdx}/leave`, undefined, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
-
-    return data;
+    const response = await this.coreHttpService.post<CoreResponse<LeaveCall>>(`/calls/${roomIdx}/leave`, undefined, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
+    return response;
   }
 
   async getParticipantsByRoomIdx(
     roomIdx: number,
     userIdx: number,
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/calls/${roomIdx}/participants`, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
+    const response = await this.coreHttpService.get<CoreResponse<GetCallParticipants>>(`/calls/${roomIdx}/participants`, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
-    return data;
+    return response;
   }
 }
