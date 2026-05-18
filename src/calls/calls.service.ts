@@ -1,19 +1,22 @@
 import { Injectable } from '@nestjs/common';
-
 import { CoreHttpService } from 'src/core-http/core-http.service';
 import { GetCallParticipantsResponse } from './dto/core/response/GetCallParticipantsResponse.interface';
 import { JoinCallResponse } from './dto/core/response/JoinCallResponse.interface';
 import { LeaveCallResponse } from './dto/core/response/LeaveCallResponse.interface';
 import { ConfigService } from '@nestjs/config';
 import WebSocket from 'ws';
-import { Socket } from 'socket.io';
+import type { Server, Socket } from 'socket.io';
 import { Logger } from 'nestjs-pino';
+import { AiMessageDto } from './dto/ai-message.dto';
+import { disconnectWithAuthError } from 'src/common/ws-error.util';
 
 @Injectable()
 export class CallsService {
   private readonly AI_WS_URL: string;
-  private aiSocket: WebSocket;
   private readonly clients = new Map<string, Socket>();
+  private readonly clientParticipants = new Map<number, number>();
+  private aiSocket: WebSocket;
+  private server!: Server;
 
   constructor(
     private readonly coreHttpService: CoreHttpService,
@@ -35,15 +38,26 @@ export class CallsService {
       this.logger.log('AI WebSocket Connected');
     });
 
-    this.aiSocket.on('message', (data) => {
+    this.aiSocket.on('message', (data: AiMessageDto) => {
       this.handleAiMessage(data);
     });
   };
 
   public connectSocket(
-    client: Socket
+    client: Socket,
+    callRoomIdx: number
   ) {
     this.clients.set(client.id, client);
+
+    const participantRoomIdx = this.clientParticipants.get(client.data.user.idx);
+
+    if (participantRoomIdx !== callRoomIdx) {
+      disconnectWithAuthError(client, 'CALL_002');
+
+      return;
+    }
+
+    client.join(`call_room:${callRoomIdx}`);
   }
 
   public disconnectSocket(
@@ -53,43 +67,42 @@ export class CallsService {
   }
 
   private handleAiMessage(
-    data: WebSocket.RawData
+    data: AiMessageDto
   ) {
-    const text = data.toString();
+    const parseData = JSON.parse(data.toString());
 
-    try {
-      JSON.parse(text);
-    } catch {
-      for (const [clientId, client] of this.clients) {
-        if (!client.connected) {
-          this.clients.delete(clientId);
-          continue;
-        }
+    const text: string = parseData.text;
+    const callRoomIdx: number = parseData.callRoomIdx;
 
-        client.emit('translation', {
-          userIdx: client.data.user.idx,
-          text
-        });
-      }
-    }
+    if (!text) return;
+    
+    this.server.to(`call_room:${callRoomIdx}`).emit('translation', {
+      text,
+      callRoomIdx
+    });
   }
 
   public sendFrame(
-    frame: object
+    frame: object,
+    client: Socket
   ) {
     if (this.aiSocket.readyState !== WebSocket.OPEN) {
       this.logger.warn('AI WebSocket is not open; frame dropped');
+
       return;
     }
 
-    this.aiSocket.send(JSON.stringify(frame), (error) => {
+    this.aiSocket.send(JSON.stringify({
+      frame,
+      callRoomIdx: client.data.callRoomIdx
+    }), (error) => {
       if (error) {
         this.logger.error('AI WebSocket send failed:', error);
       }
     });
   }
 
-  async joinCall(
+  public async joinCall(
     roomIdx: number,
     userIdx: number,
   ) {
@@ -97,12 +110,14 @@ export class CallsService {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
+
+    this.clientParticipants.set(userIdx, roomIdx);
 
     return response;
   }
 
-  async leaveCall(
+  public async leaveCall(
     roomIdx: number,
     userIdx: number,
   ) {
@@ -110,11 +125,14 @@ export class CallsService {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
+
+    this.clientParticipants.delete(userIdx);
+
     return response;
   }
 
-  async getParticipantsByRoomIdx(
+  public async getParticipantsByRoomIdx(
     roomIdx: number,
     userIdx: number,
   ) {
@@ -122,8 +140,14 @@ export class CallsService {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return response;
+  }
+
+  public setServer(
+    server: Server
+  ) {
+    this.server = server;
   }
 }
