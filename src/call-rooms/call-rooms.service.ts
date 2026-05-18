@@ -47,7 +47,7 @@ export class CallRoomsService {
     const { data } = await firstValueFrom(
       this.httpService.post(`${this.SPRING_SERVER_URL}/rooms`, {
         ...body,
-        thumbnail_uuid: _file.data.file_uuid
+        thumbnail_uuid: _file?.data.mediaUuid ?? null,
       }, {
         headers: {
           'X-User-Id': userIdx
@@ -57,7 +57,7 @@ export class CallRoomsService {
 
     return {
       ...data,
-      fileUUID: _file.data.file_uuid
+      fileUUID: _file?.data.mediaUuid ?? null,
     };
   }
 
@@ -106,7 +106,7 @@ export class CallRoomsService {
     const { data } = await firstValueFrom(
       this.httpService.patch(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}`, {
         ...body,
-        thumbnail_uuid: _file.data.file_uuid
+        thumbnail_uuid: _file?.data.mediaUuid ?? null,
       }, {
         headers: {
           'X-User-Id': userIdx
@@ -116,7 +116,7 @@ export class CallRoomsService {
 
     return {
       ...data,
-      fileUUID: _file.data.file_uuid
+      fileUUID: _file?.data.mediaUuid ?? null,
     };
   }
 

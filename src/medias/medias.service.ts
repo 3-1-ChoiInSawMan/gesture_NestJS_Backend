@@ -1,19 +1,16 @@
-import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import FormData from 'form-data';
-import { firstValueFrom } from 'rxjs';
+import { CoreResponse } from 'src/common/core-response.interface';
+import { CoreHttpService } from 'src/core-http/core-http.service';
+import { MediaUpload } from './dto/core/response/MediaUpload.interface';
+import { MediaUrl } from './dto/core/response/MediaUrl.interface';
 
 @Injectable()
 export class MediasService {
-  private readonly SPRING_SERVER_URL: string;
-    
+
   constructor(
-    private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
-  ) {
-    this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
-  };
+    private readonly coreHttpService: CoreHttpService,
+  ) { };
 
   async uploadMedia(
     file: Express.Multer.File | undefined,
@@ -30,19 +27,17 @@ export class MediasService {
       contentType: file.mimetype,
     });
 
-    const { data } = await firstValueFrom(
-      this.httpService.post(`${this.SPRING_SERVER_URL}/medias/upload`,
-        formData,
-        {
-          headers: {
-            ...formData.getHeaders(),
-            'X-User-Id': userIdx
-          }
+    const response = await this.coreHttpService.post<CoreResponse<MediaUpload>>(`/medias/upload`,
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          'X-User-Id': userIdx
         }
-      )
-    );
+      }
+    )
 
-    return data;
+    return response;
   }
 
   async getMediaByUUID(
@@ -51,14 +46,12 @@ export class MediasService {
   ) {
     const _mediaUUID = encodeURIComponent(mediaUUID);
 
-    const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/medias/${_mediaUUID}`, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
+    const response = await this.coreHttpService.get<CoreResponse<MediaUrl>>(`/medias/${_mediaUUID}`, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
-    return data;
+    return response;
   }
 }

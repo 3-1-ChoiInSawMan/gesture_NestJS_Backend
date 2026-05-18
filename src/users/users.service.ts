@@ -58,7 +58,7 @@ export class UsersService {
 
     const response = await this.coreHttpService.patch<CoreResponse<UpdatedUsersInformation>>('/users/me', {
       ...body,
-      profile_image_uuid: _file.data.file_uuid
+      profile_image_uuid: _file?.data.mediaUuid ?? null
     }, {
       headers: {
         'X-User-Id': userIdx
@@ -67,7 +67,7 @@ export class UsersService {
 
     return {
       response,
-      fileUUID: _file.data.file_uuid,
+      fileUUID: _file?.data.mediaUuid ?? null,
     };
   }
 
