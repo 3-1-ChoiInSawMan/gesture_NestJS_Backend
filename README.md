@@ -32,3 +32,9 @@ feat: 로그인 API 구현
 fix: JWT 토큰 만료 처리 오류 수정
 refactor: AuthModule 구조 개선
 ```
+
+## 로컬 배포 테스트
+
+```bash
+npm run test:deploy
+```
