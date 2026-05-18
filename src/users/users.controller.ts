@@ -3,8 +3,8 @@ import { UsersService } from './users.service';
 import { GetUser } from 'src/decorators/get-user.decorator';
 import { type JwtPayload } from 'src/common/jwt-payload.interface';
 import { JwtGuard } from 'src/guards/jwt.guard';
-import { UpdatePasswordDto } from './dto/request/update-password.dto';
-import { UpdateMyInformationDto } from './dto/request/update-my-information.dto';
+import { UpdatePasswordDto } from './dto/client/request/update-password.dto';
+import { UpdateMyInformationDto } from './dto/client/request/update-my-information.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller({ path: '/users', version: '1' })
@@ -65,10 +65,10 @@ export class UsersControllerV1 {
     @Body() body: UpdateMyInformationDto,
     @GetUser() user: JwtPayload
   ) {
-    const { data, message, fileUUID } = await this.usersService.updateMyInformation(file, body, user.idx);
+    const { response, fileUUID } = await this.usersService.updateMyInformation(file, body, user.idx);
 
     const _user = {
-      ...data,
+      ...response.data,
       profile_uuid: fileUUID
     };
 
@@ -76,7 +76,7 @@ export class UsersControllerV1 {
       data: {
         user: _user
       },
-      message,
+      message: response.message,
     };
   }
 
