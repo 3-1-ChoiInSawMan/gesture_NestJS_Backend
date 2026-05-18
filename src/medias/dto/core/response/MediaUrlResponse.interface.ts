@@ -8,6 +8,6 @@
 }
 */
 
-export interface MediaUrl {
+export interface MediaUrlResponse {
   fileUrl: string;
 }

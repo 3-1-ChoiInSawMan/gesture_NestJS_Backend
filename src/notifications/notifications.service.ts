@@ -7,10 +7,9 @@ import { NotificationType } from './enum/notification-type.enum';
 import { UpdateNotificationSettingDto } from './dto/client/request/update-notification-setting.dto';
 import { CoreHttpService } from 'src/core-http/core-http.service';
 
-import { CoreResponse } from 'src/common/core-response.interface';
-import { Notification } from './dto/core/response/Notifications.interface';
-import { NotificationRead } from './dto/core/response/NotificationRead.interface';
-import { NotificationSettingStatus, NotificationSettingUpdate } from './dto/core/response/NotificationSettings.interface';
+import { NotificationResponse } from './dto/core/response/NotificationResponse.interface';
+import { NotificationReadResponse } from './dto/core/response/NotificationReadResponse.interface';
+import { NotificationSettingStatusResponse, NotificationSettingUpdateResponse } from './dto/core/response/NotificationSettingsResponse.interface';
 
 @Injectable()
 export class NotificationsService {
@@ -78,7 +77,7 @@ export class NotificationsService {
     userIdx: number
   ) {
 
-    const response = await this.coreHttpService.get<CoreResponse<Notification[]>>('/notifications', {
+    const response = await this.coreHttpService.get<NotificationResponse[]>('/notifications', {
       headers: {
         'X-User-Id': userIdx
       }
@@ -105,7 +104,7 @@ export class NotificationsService {
     notificationIdx: number,
     userIdx: number
   ) {
-    const response = await this.coreHttpService.patch<CoreResponse<NotificationRead>>(`/notifications/${notificationIdx}/read`, undefined, {
+    const response = await this.coreHttpService.patch<NotificationReadResponse>(`/notifications/${notificationIdx}/read`, undefined, {
       headers: {
         'X-User-Id': userIdx
       }
@@ -117,7 +116,7 @@ export class NotificationsService {
   async getNotificationSetting(
     userIdx: number
   ) {
-    const response = await this.coreHttpService.get<CoreResponse<NotificationSettingStatus[]>>('/notifications/settings', {
+    const response = await this.coreHttpService.get<NotificationSettingStatusResponse[]>('/notifications/settings', {
       headers: {
         'X-User-Id': userIdx
       }
@@ -131,7 +130,7 @@ export class NotificationsService {
     body: UpdateNotificationSettingDto,
     userIdx: number
   ) {
-    const response = await this.coreHttpService.patch<CoreResponse<NotificationSettingUpdate>>(`/notifications/settings/${notificationType}`, body, {
+    const response = await this.coreHttpService.patch<NotificationSettingUpdateResponse>(`/notifications/settings/${notificationType}`, body, {
       headers: {
         'X-User-Id': userIdx
       }

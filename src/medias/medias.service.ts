@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import FormData from 'form-data';
-import { CoreResponse } from 'src/common/core-response.interface';
+
 import { CoreHttpService } from 'src/core-http/core-http.service';
-import { MediaUpload } from './dto/core/response/MediaUpload.interface';
-import { MediaUrl } from './dto/core/response/MediaUrl.interface';
+import { MediaUploadResponse } from './dto/core/response/MediaUploadResponse.interface';
+import { MediaUrlResponse } from './dto/core/response/MediaUrlResponse.interface';
 
 @Injectable()
 export class MediasService {
@@ -27,7 +27,7 @@ export class MediasService {
       contentType: file.mimetype,
     });
 
-    const response = await this.coreHttpService.post<CoreResponse<MediaUpload>>(`/medias/upload`,
+    const response = await this.coreHttpService.post<MediaUploadResponse>(`/medias/upload`,
       formData,
       {
         headers: {
@@ -46,7 +46,7 @@ export class MediasService {
   ) {
     const _mediaUUID = encodeURIComponent(mediaUUID);
 
-    const response = await this.coreHttpService.get<CoreResponse<MediaUrl>>(`/medias/${_mediaUUID}`, {
+    const response = await this.coreHttpService.get<MediaUrlResponse>(`/medias/${_mediaUUID}`, {
       headers: {
         'X-User-Id': userIdx
       }

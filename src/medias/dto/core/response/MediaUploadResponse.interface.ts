@@ -9,7 +9,7 @@
 }
 */
 
-export interface MediaUpload {
+export interface MediaUploadResponse {
   mediaUuid: string;
   fileUrl: string;
 }

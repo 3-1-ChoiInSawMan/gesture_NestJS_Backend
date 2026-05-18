@@ -26,7 +26,7 @@
 }
 */
 
-export interface CallParticipant {
+export interface CallParticipantResponse {
   userIdx: number;
   nickname: string;
   joinedAt: Date;
@@ -34,9 +34,9 @@ export interface CallParticipant {
   host: boolean;
 }
 
-export interface GetCallParticipants {
+export interface GetCallParticipantsResponse {
   callIdx: number;
   roomIdx: number;
-  participants: CallParticipant[];
+  participants: CallParticipantResponse[];
   currentParticipant: number;
 }

@@ -56,7 +56,7 @@
 }
 */
 
-export interface CallRoomSummary {
+export interface CallRoomSummaryResponse {
   roomIdx: number;
   title: string;
   category: string;
@@ -68,30 +68,30 @@ export interface CallRoomSummary {
   hostUserIdx: number;
 }
 
-export interface PageSort {
+export interface PageSortResponse {
   sorted: boolean;
   empty: boolean;
   unsorted: boolean;
 }
 
-export interface Pageable {
+export interface PageableResponse {
   pageNumber: number;
   pageSize: number;
-  sort: PageSort;
+  sort: PageSortResponse;
   offset: number;
   paged: boolean;
   unpaged: boolean;
 }
 
-export interface GetCallRooms {
-  content: CallRoomSummary[];
-  pageable: Pageable;
+export interface GetCallRoomsResponse {
+  content: CallRoomSummaryResponse[];
+  pageable: PageableResponse;
   totalPages: number;
   totalElements: number;
   last: boolean;
   size: number;
   number: number;
-  sort: PageSort;
+  sort: PageSortResponse;
   numberOfElements: number;
   first: boolean;
   empty: boolean;

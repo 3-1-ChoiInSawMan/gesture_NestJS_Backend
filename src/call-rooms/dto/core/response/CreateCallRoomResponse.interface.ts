@@ -17,7 +17,7 @@
 }
 */
 
-export interface CreateCallRoom {
+export interface CreateCallRoomResponse {
   roomIdx: number;
   title: string;
   category: string;

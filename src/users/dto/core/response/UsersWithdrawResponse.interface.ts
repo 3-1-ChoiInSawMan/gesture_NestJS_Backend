@@ -11,7 +11,7 @@
 }
 */
 
-export class UsersWithdraw {
+export interface UsersWithdrawResponse {
   idx: number;
   id: string;
   nickname: string;

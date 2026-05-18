@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { CoreResponse } from 'src/common/core-response.interface';
+
 import { CoreHttpService } from 'src/core-http/core-http.service';
-import { GetCallParticipants } from './dto/core/response/GetCallParticipants.interface';
-import { JoinCall } from './dto/core/response/JoinCall.interface';
-import { LeaveCall } from './dto/core/response/LeaveCall.interface';
+import { GetCallParticipantsResponse } from './dto/core/response/GetCallParticipantsResponse.interface';
+import { JoinCallResponse } from './dto/core/response/JoinCallResponse.interface';
+import { LeaveCallResponse } from './dto/core/response/LeaveCallResponse.interface';
 
 @Injectable()
 export class CallsService {
@@ -15,7 +15,7 @@ export class CallsService {
     roomIdx: number,
     userIdx: number,
   ) {
-    const response = await this.coreHttpService.post<CoreResponse<JoinCall>>(`/calls/${roomIdx}/join`, undefined, {
+    const response = await this.coreHttpService.post<JoinCallResponse>(`/calls/${roomIdx}/join`, undefined, {
       headers: {
         'X-User-Id': userIdx
       }
@@ -28,7 +28,7 @@ export class CallsService {
     roomIdx: number,
     userIdx: number,
   ) {
-    const response = await this.coreHttpService.post<CoreResponse<LeaveCall>>(`/calls/${roomIdx}/leave`, undefined, {
+    const response = await this.coreHttpService.post<LeaveCallResponse>(`/calls/${roomIdx}/leave`, undefined, {
       headers: {
         'X-User-Id': userIdx
       }
@@ -40,7 +40,7 @@ export class CallsService {
     roomIdx: number,
     userIdx: number,
   ) {
-    const response = await this.coreHttpService.get<CoreResponse<GetCallParticipants>>(`/calls/${roomIdx}/participants`, {
+    const response = await this.coreHttpService.get<GetCallParticipantsResponse>(`/calls/${roomIdx}/participants`, {
       headers: {
         'X-User-Id': userIdx
       }

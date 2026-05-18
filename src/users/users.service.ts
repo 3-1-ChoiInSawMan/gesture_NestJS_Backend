@@ -4,11 +4,10 @@ import { UpdateMyInformationDto } from './dto/client/request/update-my-informati
 import { MediasService } from 'src/medias/medias.service';
 import { CoreHttpService } from 'src/core-http/core-http.service';
 
-import { CoreResponse } from 'src/common/core-response.interface';
-import { UsersWithdraw } from './dto/core/response/UsersWithdraw.interface';
-import { UsersMe } from './dto/core/response/UsersMe.interface';
-import { SearchedUsersInformation, UpdatedUsersInformation, UsersInformation } from './dto/core/response/UsersInformation.interface';
-import { UsersPassword } from './dto/core/response/UsersPassword.interface';
+import { UsersWithdrawResponse } from './dto/core/response/UsersWithdrawResponse.interface';
+import { UsersMeResponse } from './dto/core/response/UsersMeResponse.interface';
+import { SearchedUsersInformationResponse, UpdatedUsersInformationResponse, UsersInformationResponse } from './dto/core/response/UsersInformationResponse.interface';
+import { UsersPasswordResponse } from './dto/core/response/UsersPasswordResponse.interface';
 
 @Injectable()
 export class UsersService {
@@ -20,7 +19,7 @@ export class UsersService {
   async withdrawAccount(
     userIdx: number
   ) {
-    const response = await this.coreHttpService.delete<CoreResponse<UsersWithdraw>>('/users/withdraw', {
+    const response = await this.coreHttpService.delete<UsersWithdrawResponse>('/users/withdraw', {
       headers: {
         'X-User-Id': userIdx
       }
@@ -32,7 +31,7 @@ export class UsersService {
   async getMyInformation(
     userIdx: number
   ) {
-    const response = await this.coreHttpService.get<CoreResponse<UsersMe>>(`/users/me`, {
+    const response = await this.coreHttpService.get<UsersMeResponse>(`/users/me`, {
       headers: {
         'X-User-Id': userIdx
       }
@@ -44,7 +43,7 @@ export class UsersService {
   async getUserInformation(
     userIdx: number
   ) {
-    const response = await this.coreHttpService.get<CoreResponse<UsersInformation>>(`/users/${userIdx}`);
+    const response = await this.coreHttpService.get<UsersInformationResponse>(`/users/${userIdx}`);
 
     return response;
   }
@@ -56,7 +55,7 @@ export class UsersService {
   ) {
     const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
 
-    const response = await this.coreHttpService.patch<CoreResponse<UpdatedUsersInformation>>('/users/me', {
+    const response = await this.coreHttpService.patch<UpdatedUsersInformationResponse>('/users/me', {
       ...body,
       profile_image_uuid: _file?.data.mediaUuid ?? null
     }, {
@@ -75,7 +74,7 @@ export class UsersService {
     body: UpdatePasswordDto,
     userIdx: number
   ) {
-    const response = await this.coreHttpService.patch<CoreResponse<UsersPassword>>('/users/password', body, {
+    const response = await this.coreHttpService.patch<UsersPasswordResponse>('/users/password', body, {
       headers: {
         'X-User-Id': userIdx
       }
@@ -87,7 +86,7 @@ export class UsersService {
   async getSpecifyUserInformation(
     userId: string
   ) {
-    const response = await this.coreHttpService.get<CoreResponse<SearchedUsersInformation[]>>(`/users?userId=${userId}`)
+    const response = await this.coreHttpService.get<SearchedUsersInformationResponse[]>(`/users?userId=${userId}`)
 
     return response;
   }

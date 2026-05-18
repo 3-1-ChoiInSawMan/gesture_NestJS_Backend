@@ -13,7 +13,7 @@
 }
 */
 
-export interface LeaveCall {
+export interface LeaveCallResponse {
   callIdx: number;
   roomIdx: number;
   userIdx: number;

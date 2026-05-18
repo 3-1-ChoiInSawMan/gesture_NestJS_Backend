@@ -13,7 +13,7 @@
   "message": "요청이 성공적으로 처리되었습니다."
 }
 */
-export interface JoinRoom {
+export interface JoinRoomResponse {
   roomMemberIdx: number;
   roomIdx: number;
   userIdx: number;

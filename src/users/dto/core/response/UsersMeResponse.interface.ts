@@ -16,7 +16,7 @@
 }
 */
 
-export interface UsersMe {
+export interface UsersMeResponse {
   idx: number;
   id: string;
   email: string;

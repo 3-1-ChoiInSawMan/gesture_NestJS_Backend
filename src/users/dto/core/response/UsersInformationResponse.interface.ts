@@ -15,7 +15,7 @@
 
 */
 
-export interface UsersInformation {
+export interface UsersInformationResponse {
   idx: number;
   id: string;
   profileUrl: string;
@@ -38,7 +38,7 @@ export interface UsersInformation {
 }
 */
 
-export interface UpdatedUsersInformation {
+export interface UpdatedUsersInformationResponse {
   idx: number;
   nickname: string;
   profileUrl: string;
@@ -73,7 +73,7 @@ export interface UpdatedUsersInformation {
 }
 */
 
-export interface SearchedUsersInformation {
+export interface SearchedUsersInformationResponse {
   idx: number;
   id: string;
   nickname: string;

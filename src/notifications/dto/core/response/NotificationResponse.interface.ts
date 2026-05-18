@@ -22,7 +22,7 @@
 }
 */
 
-export interface Notification {
+export interface NotificationResponse {
   idx: number;
   type: string;
   isRead: boolean;

@@ -7,10 +7,9 @@ import { UpdateCallRoomDto } from './dto/request/update-call-room.dto';
 import { MediasService } from 'src/medias/medias.service';
 import { CoreHttpService } from 'src/core-http/core-http.service';
 
-import { CoreResponse } from 'src/common/core-response.interface';
-import { CreateCallRoom } from './dto/core/response/CreateCallRoom.interface';
-import { JoinRoom } from './dto/core/response/JoinRoom.interface';
-import { GetCallRooms } from './dto/core/response/GetCallRooms.interface';
+import { CreateCallRoomResponse } from './dto/core/response/CreateCallRoomResponse.interface';
+import { JoinRoomResponse } from './dto/core/response/JoinRoomResponse.interface';
+import { GetCallRoomsResponse } from './dto/core/response/GetCallRoomsResponse.interface';
 
 @Injectable()
 export class CallRoomsService {
@@ -24,7 +23,7 @@ export class CallRoomsService {
     roomIdx: number,
     userIdx: number
   ) {
-    const response = await this.coreHttpService.post<CoreResponse<JoinRoom>>(`/rooms/${roomIdx}/join`, body, {
+    const response = await this.coreHttpService.post<JoinRoomResponse>(`/rooms/${roomIdx}/join`, body, {
       headers: {
         'X-User-Id': userIdx
       }
@@ -40,7 +39,7 @@ export class CallRoomsService {
   ) {
     const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
 
-    const response = await this.coreHttpService.post<CoreResponse<CreateCallRoom>>('/rooms', {
+    const response = await this.coreHttpService.post<CreateCallRoomResponse>('/rooms', {
       ...body,
       thumbnail_uuid: _file?.data.mediaUuid ?? null,
     }, {
@@ -58,7 +57,7 @@ export class CallRoomsService {
   async getCallRooms(
     query: GetCallRoomsQueryDto
   ) {
-    const response = await this.coreHttpService.get<CoreResponse<GetCallRooms>>('/rooms', {
+    const response = await this.coreHttpService.get<GetCallRoomsResponse>('/rooms', {
       params: query
     })
 
@@ -68,7 +67,7 @@ export class CallRoomsService {
   async getCallRoomsByKeyword(
     query: GetCallRoomsByKeywordQueryDto
   ) {
-    const response = await this.coreHttpService.get<CoreResponse<GetCallRooms>>('/rooms/search', {
+    const response = await this.coreHttpService.get<GetCallRoomsResponse>('/rooms/search', {
       params: query
     })
 
@@ -78,7 +77,7 @@ export class CallRoomsService {
   async getCallRoomById(
     roomIdx: number,
   ) {
-    const response = await this.coreHttpService.get<CoreResponse<CreateCallRoom>>(`/rooms/${roomIdx}`)
+    const response = await this.coreHttpService.get<CreateCallRoomResponse>(`/rooms/${roomIdx}`)
 
     return response;
   }
@@ -91,7 +90,7 @@ export class CallRoomsService {
   ) {
     const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
 
-    const response = await this.coreHttpService.patch<CoreResponse<CreateCallRoom>>(`/rooms/${roomIdx}`, {
+    const response = await this.coreHttpService.patch<CreateCallRoomResponse>(`/rooms/${roomIdx}`, {
       ...body,
       thumbnail_uuid: _file?.data.mediaUuid ?? null,
     }, {
@@ -110,7 +109,7 @@ export class CallRoomsService {
     roomIdx: number,
     userIdx: number
   ) {
-    const response = await this.coreHttpService.delete<CoreResponse<CreateCallRoom>>(`/rooms/${roomIdx}`, {
+    const response = await this.coreHttpService.delete<CreateCallRoomResponse>(`/rooms/${roomIdx}`, {
       headers: {
         'X-User-Id': userIdx
       }
@@ -123,7 +122,7 @@ export class CallRoomsService {
     roomIdx: number,
     userIdx: number
   ) {
-    const response = await this.coreHttpService.delete<CoreResponse<JoinRoom>>(`/rooms/${roomIdx}/leave`, {
+    const response = await this.coreHttpService.delete<JoinRoomResponse>(`/rooms/${roomIdx}/leave`, {
       headers: {
         'X-User-Id': userIdx
       }

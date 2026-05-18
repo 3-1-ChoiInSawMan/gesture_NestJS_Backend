@@ -13,7 +13,7 @@
 }
 */
 
-export interface JoinCall {
+export interface JoinCallResponse {
   callIdx: number;
   roomIdx: number;
   userIdx: number;
