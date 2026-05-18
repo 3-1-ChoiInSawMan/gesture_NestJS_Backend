@@ -1,21 +1,28 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable, MessageEvent } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { CreateNotificationDto } from './dto/request/create-notification.dto';
+import { CreateNotificationDto } from './dto/client/request/create-notification.dto';
 import { finalize, firstValueFrom, from, map, merge, Subject } from 'rxjs';
 import { NotificationType } from './enum/notification-type.enum';
-import { UpdateNotificationSettingDto } from './dto/request/update-notification-setting.dto';
+import { UpdateNotificationSettingDto } from './dto/client/request/update-notification-setting.dto';
+import { CoreHttpService } from 'src/core-http/core-http.service';
+
+import { CoreResponse } from 'src/common/core-response.interface';
+import { Notification } from './dto/core/response/Notifications.interface';
+import { NotificationRead } from './dto/core/response/NotificationRead.interface';
+import { NotificationSettingStatus, NotificationSettingUpdate } from './dto/core/response/NotificationSettings.interface';
 
 @Injectable()
 export class NotificationsService {
-  private readonly SPRING_SERVER_URL: string;
+  private readonly SPRING_SERVER_URL: string = "";
   private readonly notificationStreams = new Map<number, Subject<MessageEvent>>();
-  
+
   constructor(
     private readonly httpService: HttpService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly coreHttpService: CoreHttpService,
   ) {
-    this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
+    this.SPRING_SERVER_URL = configService.getOrThrow<string>("SPRING_SERVER_URL");
   };
 
   async createNotification(
@@ -70,18 +77,15 @@ export class NotificationsService {
   async getNotifications(
     userIdx: number
   ) {
-    
-    const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/notifications`, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
-    
-    return {
-      data: data.data
-    };
+
+    const response = await this.coreHttpService.get<CoreResponse<Notification[]>>('/notifications', {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    });
+
+    return response;
+
   }
 
   emitToUser(
@@ -101,35 +105,25 @@ export class NotificationsService {
     notificationIdx: number,
     userIdx: number
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.patch(`${this.SPRING_SERVER_URL}/notifications/${notificationIdx}/read`, undefined, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
-    
-    return {
-      data: data.data,
-      message: data.message
-    };
+    const response = await this.coreHttpService.patch<CoreResponse<NotificationRead>>(`/notifications/${notificationIdx}/read`, undefined, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
+
+    return response;
   }
 
   async getNotificationSetting(
     userIdx: number
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/notifications/settings`, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
-    
-    return {
-      data: data.data,
-      message: data.message
-    };
+    const response = await this.coreHttpService.get<CoreResponse<NotificationSettingStatus[]>>('/notifications/settings', {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    });
+
+    return response;
   }
 
   async updateNotificationSetting(
@@ -137,17 +131,12 @@ export class NotificationsService {
     body: UpdateNotificationSettingDto,
     userIdx: number
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.patch(`${this.SPRING_SERVER_URL}/notifications/settings/${notificationType}`, body, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
-    
-    return {
-      data: data.data,
-      message: data.message
-    };
+    const response = await this.coreHttpService.patch<CoreResponse<NotificationSettingUpdate>>(`/notifications/settings/${notificationType}`, body, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    });
+
+    return response;
   }
 }

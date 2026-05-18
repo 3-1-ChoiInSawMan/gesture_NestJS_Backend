@@ -3,9 +3,9 @@ import { NotificationsService } from './notifications.service';
 import { JwtGuard } from 'src/guards/jwt.guard';
 import { GetUser } from 'src/decorators/get-user.decorator';
 import { type JwtPayload } from 'src/common/jwt-payload.interface';
-import { CreateNotificationDto } from './dto/request/create-notification.dto';
+import { CreateNotificationDto } from './dto/client/request/create-notification.dto';
 import { NotificationType } from './enum/notification-type.enum';
-import { UpdateNotificationSettingDto } from './dto/request/update-notification-setting.dto';
+import { UpdateNotificationSettingDto } from './dto/client/request/update-notification-setting.dto';
 
 @Controller({ path: '/notifications', version: '1' })
 export class NotificationsController {
@@ -14,6 +14,10 @@ export class NotificationsController {
   ) { };
 
   // 알림 생성
+  /*
+    내부에서만 사용하는 로직으로 변경해야 합니다.
+    엔드포인트 삭제 예정이므로 리팩토링 대상에서 제외합니다.
+  */
   @UseGuards(JwtGuard)
   @Post()
   async handleCreateNotification(
