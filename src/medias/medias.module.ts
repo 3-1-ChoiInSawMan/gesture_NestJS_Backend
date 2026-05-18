@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { MediasService } from './medias.service';
-import { HttpModule } from '@nestjs/axios';
 import { MediasController } from './medias.controller';
 import { AuthModule } from 'src/auth/auth.module';
+import { CoreHttpModule } from 'src/core-http/core-http.module';
 
 @Module({
   imports: [
-    HttpModule,
+    CoreHttpModule,
     AuthModule,
   ],
   controllers: [MediasController],
