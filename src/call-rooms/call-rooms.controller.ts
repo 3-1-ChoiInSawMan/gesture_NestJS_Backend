@@ -43,10 +43,10 @@ export class CallRoomsController {
     @Body() body: CreateCallRoomDto,
     @GetUser() user: JwtPayload
   ) {
-    const { data, message, fileUUID } = await this.callRoomsService.createCallRoom(file, body, user.idx);
+    const { response, fileUUID } = await this.callRoomsService.createCallRoom(file, body, user.idx);
 
     const _room = {
-      ...data,
+      ...response.data,
       thumbnail_uuid: fileUUID
     };
 
@@ -54,7 +54,7 @@ export class CallRoomsController {
       data: {
         room: _room
       },
-      message,
+      message: response.message,
     };
   }
 
@@ -113,10 +113,10 @@ export class CallRoomsController {
     @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
     @GetUser() user: JwtPayload
   ) {
-    const { data, message, fileUUID } = await this.callRoomsService.updateCallRoomById(file, body, roomIdx, user.idx);
+    const { response, fileUUID } = await this.callRoomsService.updateCallRoomById(file, body, roomIdx, user.idx);
 
     const _room = {
-      ...data,
+      ...response.data,
       thumbnail_uuid: fileUUID
     };
 
@@ -124,7 +124,7 @@ export class CallRoomsController {
       data: {
         room: _room
       },
-      message
+      message: response.message
     };
   }
 
@@ -139,7 +139,9 @@ export class CallRoomsController {
 
     return {
       data: {
-        room: data,
+        room: data,"numberOfElements": 5,
+    "first": true,
+    
       },
       message
     };

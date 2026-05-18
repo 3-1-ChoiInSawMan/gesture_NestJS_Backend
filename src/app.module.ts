@@ -10,6 +10,7 @@ import { CallRoomsModule } from './call-rooms/call-rooms.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MediasModule } from './medias/medias.module';
 import { CallsModule } from './calls/calls.module';
+import { CoreHttpModule } from './core-http/core-http.module';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -32,6 +33,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
       },
     }),
     HttpModule,
+    CoreHttpModule,
     AuthModule,
     UsersModule,
     CallRoomsModule,
