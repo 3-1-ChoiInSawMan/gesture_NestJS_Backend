@@ -21,7 +21,7 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @UseGuards(WsGuard)
   @SubscribeMessage('send_frame')
   handleSendFrame(
-    @MessageBody() frame: Object,
+    @MessageBody() frame: object,
   ) {
     this.callsService.sendFrame(frame);
   }
@@ -60,5 +60,6 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Disconnected: ${client.id}`);
+    this.callsService.disconnectSocket(client);
   }
 }
