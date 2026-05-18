@@ -1,40 +1,36 @@
-import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { CreateCallRoomDto } from './dto/request/create-call-room.dto';
-import { firstValueFrom } from 'rxjs';
-import { ConfigService } from '@nestjs/config';
 import { JoinCallRoomDto } from './dto/request/join-call-room.dto';
 import { GetCallRoomsQueryDto } from './dto/request/get-call-rooms-query.dto';
 import { GetCallRoomsByKeywordQueryDto } from './dto/request/get-call-room-by-keyword-query.dto';
 import { UpdateCallRoomDto } from './dto/request/update-call-room.dto';
 import { MediasService } from 'src/medias/medias.service';
+import { CoreHttpService } from 'src/core-http/core-http.service';
+
+import { CoreResponse } from 'src/common/core-response.interface';
+import { CreateCallRoom } from './dto/core/response/CreateCallRoom.interface';
+import { JoinRoom } from './dto/core/response/JoinRoom.interface';
+import { GetCallRooms } from './dto/core/response/GetCallRooms.interface';
 
 @Injectable()
 export class CallRoomsService {
-  private readonly SPRING_SERVER_URL: string;
-  
   constructor(
-    private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
+    private readonly coreHttpService: CoreHttpService,
     private readonly mediasService: MediasService,
-  ) {
-    this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
-  };
+  ) { };
 
   async joinCallRoom(
     body: JoinCallRoomDto,
     roomIdx: number,
     userIdx: number
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.post(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}/join`, body, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
+    const response = await this.coreHttpService.post<CoreResponse<JoinRoom>>(`/rooms/${roomIdx}/join`, body, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
-    return data;
+    return response;
   }
 
   async createCallRoom(
@@ -43,20 +39,18 @@ export class CallRoomsService {
     userIdx: number
   ) {
     const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
-    
-    const { data } = await firstValueFrom(
-      this.httpService.post(`${this.SPRING_SERVER_URL}/rooms`, {
-        ...body,
-        thumbnail_uuid: _file?.data.mediaUuid ?? null,
-      }, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
+
+    const response = await this.coreHttpService.post<CoreResponse<CreateCallRoom>>('/rooms', {
+      ...body,
+      thumbnail_uuid: _file?.data.mediaUuid ?? null,
+    }, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
     return {
-      ...data,
+      response,
       fileUUID: _file?.data.mediaUuid ?? null,
     };
   }
@@ -64,35 +58,29 @@ export class CallRoomsService {
   async getCallRooms(
     query: GetCallRoomsQueryDto
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/rooms`, {
-        params: query
-      })
-    );
+    const response = await this.coreHttpService.get<CoreResponse<GetCallRooms>>('/rooms', {
+      params: query
+    })
 
-    return data;
+    return response;
   }
 
   async getCallRoomsByKeyword(
     query: GetCallRoomsByKeywordQueryDto
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/rooms/search`, {
-        params: query
-      })
-    );
+    const response = await this.coreHttpService.get<CoreResponse<GetCallRooms>>('/rooms/search', {
+      params: query
+    })
 
-    return data;
+    return response;
   }
 
   async getCallRoomById(
     roomIdx: number,
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}`)
-    );
+    const response = await this.coreHttpService.get<CoreResponse<CreateCallRoom>>(`/rooms/${roomIdx}`)
 
-    return data;
+    return response;
   }
 
   async updateCallRoomById(
@@ -102,20 +90,18 @@ export class CallRoomsService {
     userIdx: number,
   ) {
     const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
-    
-    const { data } = await firstValueFrom(
-      this.httpService.patch(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}`, {
-        ...body,
-        thumbnail_uuid: _file?.data.mediaUuid ?? null,
-      }, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
+
+    const response = await this.coreHttpService.patch<CoreResponse<CreateCallRoom>>(`/rooms/${roomIdx}`, {
+      ...body,
+      thumbnail_uuid: _file?.data.mediaUuid ?? null,
+    }, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
     return {
-      ...data,
+      response,
       fileUUID: _file?.data.mediaUuid ?? null,
     };
   }
@@ -124,29 +110,25 @@ export class CallRoomsService {
     roomIdx: number,
     userIdx: number
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.delete(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}`, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
+    const response = await this.coreHttpService.delete<CoreResponse<CreateCallRoom>>(`/rooms/${roomIdx}`, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
-    return data;
+    return response;
   }
 
   async leaveCallRoomById(
     roomIdx: number,
     userIdx: number
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.delete(`${this.SPRING_SERVER_URL}/rooms/${roomIdx}/leave`, {
-        headers: {
-          'X-User-Id': userIdx
-        }
-      })
-    );
+    const response = await this.coreHttpService.delete<CoreResponse<JoinRoom>>(`/rooms/${roomIdx}/leave`, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
-    return data;
+    return response;
   }
 }
