@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { FriendService } from './friend.service';
 import { JwtGuard } from 'src/guards/jwt.guard';
 import { GetUser } from 'src/decorators/get-user.decorator';
@@ -32,5 +32,11 @@ export class FriendControllerV1 {
   @Post('/reject')
   public async rejectFriendRequest(@Query('friendshipIdx') friendshipIdx: number, @GetUser() user: JwtPayload) {
     return this.friendService.rejectFriendRequest(user.idx, friendshipIdx);
+  }
+
+  @UseGuards(JwtGuard)
+  @Delete()
+  public async unfriend(@Query('userIdx') friendUserIdx: number, @GetUser() user: JwtPayload) {
+    return this.friendService.unfriend(user.idx, friendUserIdx);
   }
 }

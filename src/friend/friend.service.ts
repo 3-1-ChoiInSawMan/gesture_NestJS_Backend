@@ -4,6 +4,7 @@ import { GetPendingFriendRequestsDto } from './coreDto/response/GetPendingFriend
 import { Logger } from 'nestjs-pino';
 import { FriendStatus } from './enum/FriendStatus.enum';
 import { CoreHttpService } from 'src/core-http/core-http.service';
+import { Unfriend } from './coreDto/response/Unfriend.interface';
 
 @Injectable()
 export class FriendService {
@@ -68,5 +69,15 @@ export class FriendService {
 
   public async rejectFriendRequest(userIdx: number, friendshipIdx: number) {
     return await this.sendFriendRequestResponse(false, userIdx, friendshipIdx);
+  }
+
+  public async unfriend(userIdx: number, friendUserIdx: number) {
+    const response = await this.coreHttpService.delete<Unfriend>(`/friends/${friendUserIdx}`, {
+      headers: {
+        'X-User-Id': userIdx,
+      }
+    });
+
+    return response;
   }
 }
