@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { LoggerModule } from 'nestjs-pino';
+import { FriendModule } from './friend/friend.module';
 import { CallRoomsModule } from './call-rooms/call-rooms.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MediasModule } from './medias/medias.module';
@@ -36,6 +37,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
     CoreHttpModule,
     AuthModule,
     UsersModule,
+    FriendModule,
     CallRoomsModule,
     NotificationsModule,
     MediasModule,

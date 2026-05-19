@@ -30,6 +30,8 @@ RUN chown node:node /opt/app
 COPY --from=build --chown=node:node /opt/app/dist dist/
 COPY --from=build --chown=node:node /opt/app/node_modules node_modules/
 
+RUN chown node:node /opt/app
+
 USER node
 
 EXPOSE 8080
