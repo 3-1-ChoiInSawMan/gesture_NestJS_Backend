@@ -1,0 +1,75 @@
+name: Test Deploy Locally
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        clean: false
+
+    - name: Deploy Service
+      run: |
+        set -e
+        DEPLOY_DIR="${DEPLOY_DIR:-/tmp/nestjs-application}"
+        DEPLOY_CONTAINER="${CONTAINER:-gesture-bff}"
+        DEPLOY_IMAGE="${IMAGE:-gesture-bff}"
+        DEPLOY_PORT="${PORT:-${{ vars.SERVER_PORT }}}"
+        rm -rf "$DEPLOY_DIR" && mkdir -p "$DEPLOY_DIR"
+        tar \
+          --exclude='./node_modules' \
+          --exclude='./dist' \
+          --exclude='./coverage' \
+          --exclude='./log.json' \
+          --exclude='./.env' \
+          --exclude='./.secrets' \
+          --exclude='./.vars' \
+          -cf - . | tar -xf - -C "$DEPLOY_DIR"
+        cd "$DEPLOY_DIR"
+        git --no-pager log -1 --oneline || true
+        if grep -R "log.json\|pino/file" -n src Dockerfile; then
+          echo "The local deploy source still contains file logging config."
+          exit 1
+        fi
+
+        docker rm -f "$DEPLOY_CONTAINER" || true
+        docker build --no-cache -t "$DEPLOY_IMAGE" .
+        docker run --name "$DEPLOY_CONTAINER" \
+        -e "NODE_ENV=${{ vars.NODE_ENV }}" \
+        -e "SECURITY_PUBLIC_KEY=${{ secrets.SECURITY_PUBLIC_KEY }}" \
+        -e "SECURITY_CORS_ORIGIN=${{ vars.SECURITY_CORS_ORIGIN }}" \
+        -e "SPRING_SERVER_URL=${{ vars.SPRING_SERVER_URL }}" \
+        -e "AI_WS_URL=${{ vars.AI_WS_URL }}" \
+        -e "SERVER_PORT=${DEPLOY_PORT}" \
+        --restart unless-stopped \
+        -d -p "${DEPLOY_PORT}:${DEPLOY_PORT}" \
+        "$DEPLOY_IMAGE"
+
+    - name: Check Service Health
+      run: |
+        DEPLOY_CONTAINER="${CONTAINER:-gesture-bff}"
+        DEPLOY_PORT="${PORT:-${{ vars.SERVER_PORT }}}"
+
+        for attempt in 1 2 3 4 5; do
+          if curl -fsS "http://localhost:${DEPLOY_PORT}/api/v1" > /dev/null; then
+            echo "attempt $attempt success. BFF is healthy."
+            exit 0
+          fi
+          echo "attempt $attempt failed. retrying..."
+          sleep 3
+        done
+
+        echo "=== docker ps ==="
+        docker ps -a | grep "$DEPLOY_CONTAINER" || true
+        echo "=== docker logs ==="
+        docker logs "$DEPLOY_CONTAINER" || true
+        exit 1

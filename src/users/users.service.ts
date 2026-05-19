@@ -1,76 +1,93 @@
-import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { firstValueFrom } from 'rxjs';
+import { UpdatePasswordDto } from './dto/client/request/update-password.dto';
+import { UpdateMyInformationDto } from './dto/client/request/update-my-information.dto';
+import { MediasService } from 'src/medias/medias.service';
+import { CoreHttpService } from 'src/core-http/core-http.service';
+
+import { UsersWithdrawResponse } from './dto/core/response/UsersWithdrawResponse.interface';
+import { UsersMeResponse } from './dto/core/response/UsersMeResponse.interface';
+import { SearchedUsersInformationResponse, UpdatedUsersInformationResponse, UsersInformationResponse } from './dto/core/response/UsersInformationResponse.interface';
+import { UsersPasswordResponse } from './dto/core/response/UsersPasswordResponse.interface';
 
 @Injectable()
 export class UsersService {
-  private readonly SPRING_SERVER_URL: string;
-
   constructor(
-    private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
-  ) {
-    this.SPRING_SERVER_URL = this.configService.getOrThrow<string>('SPRING_SERVER_URL');
-  };
+    private readonly mediasService: MediasService,
+    private readonly coreHttpService: CoreHttpService,
+  ) { };
 
   async withdrawAccount(
-    userId: number
+    userIdx: number
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.delete(`${this.SPRING_SERVER_URL}/users/withdraw`, {
-        headers: {
-          'X-User-Id': userId
-        }
-      })
-    );
+    const response = await this.coreHttpService.delete<UsersWithdrawResponse>('/users/withdraw', {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return response;
   }
 
   async getMyInformation(
-    userId: number
+    userIdx: number
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/users/me`, {
-        headers: {
-          'X-User-Id': userId
-        }
-      })
-    );
+    const response = await this.coreHttpService.get<UsersMeResponse>(`/users/me`, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return response;
   }
 
   async getUserInformation(
-    userId: number
+    userIdx: number
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/users/${userId}`)
-    );
+    const response = await this.coreHttpService.get<UsersInformationResponse>(`/users/${userIdx}`);
+
+    return response;
+  }
+
+  async updateMyInformation(
+    file: Express.Multer.File | undefined,
+    body: UpdateMyInformationDto,
+    userIdx: number
+  ) {
+    const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
+
+    const response = await this.coreHttpService.patch<UpdatedUsersInformationResponse>('/users/me', {
+      ...body,
+      profile_image_uuid: _file?.data.mediaUuid ?? null
+    }, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
 
     return {
-      data: data.data,
-      message: data.message
+      response,
+      fileUUID: _file?.data.mediaUuid ?? null,
     };
+  }
+
+  async updatePassword(
+    body: UpdatePasswordDto,
+    userIdx: number
+  ) {
+    const response = await this.coreHttpService.patch<UsersPasswordResponse>('/users/password', body, {
+      headers: {
+        'X-User-Id': userIdx
+      }
+    })
+
+    return response;
   }
 
   async getSpecifyUserInformation(
     userId: string
   ) {
-    const { data } = await firstValueFrom(
-      this.httpService.get(`${this.SPRING_SERVER_URL}/users?userId=${userId}`)
-    );
+    const response = await this.coreHttpService.get<SearchedUsersInformationResponse[]>(`/users?userId=${userId}`)
 
-    return {
-      data: data.data,
-      message: data.message
-    };
+    return response;
   }
 }

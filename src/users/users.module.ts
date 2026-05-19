@@ -1,11 +1,17 @@
 import { Module } from '@nestjs/common';
-import { UsersController } from './users.controller';
+import { UsersControllerV1 } from './users.controller';
 import { UsersService } from './users.service';
-import { HttpModule } from '@nestjs/axios';
+import { AuthModule } from 'src/auth/auth.module';
+import { MediasModule } from 'src/medias/medias.module';
+import { CoreHttpModule } from 'src/core-http/core-http.module';
 
 @Module({
-  imports: [HttpModule],
-  controllers: [UsersController],
-  providers: [UsersService]
+  imports: [
+    CoreHttpModule,
+    AuthModule,
+    MediasModule
+  ],
+  controllers: [UsersControllerV1],
+  providers: [UsersService],
 })
 export class UsersModule {}

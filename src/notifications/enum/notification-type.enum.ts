@@ -1,0 +1,7 @@
+export enum NotificationType {
+  FRIEND = 'FRIEND',
+  SERVICE_NOTICE = 'SERVICE_NOTICE',
+  CALL_ROOM = 'CALL_ROOM',
+  CHAT_NOTICE = 'CHAT_NOTICE',
+  MENTION = 'MENTION'
+}

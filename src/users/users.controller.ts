@@ -1,89 +1,99 @@
-import { Controller, Delete, Get, NotImplementedException, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { GetUser } from 'src/decorators/get-user.decorator';
 import { type JwtPayload } from 'src/common/jwt-payload.interface';
+import { JwtGuard } from 'src/guards/jwt.guard';
+import { UpdatePasswordDto } from './dto/client/request/update-password.dto';
+import { UpdateMyInformationDto } from './dto/client/request/update-my-information.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
-@Controller({ path: '/api/users' })
-export class UsersController {
+@Controller({ path: '/users', version: '1' })
+export class UsersControllerV1 {
   constructor (
     private readonly usersService: UsersService,
   ) { };
 
-  @UseGuards()
+  @UseGuards(JwtGuard)
   @Delete('/withdraw')
   async handleWithdrawAccount(
     @GetUser() user: JwtPayload
   ) {
     const { data, message } = await this.usersService.withdrawAccount(user.idx);
 
-    const _user = {
-      idx: data.idx,
-      nickname: data.nickname,
-      id: data.id,
-      is_deactivated: data.is_deactivated
-    };
-
     return {
       data: {
-        user: _user
+        user: data
       },
-      message
+      message,
     };
   }
 
-  @UseGuards()
+  @UseGuards(JwtGuard)
   @Get('/me')
   async handleGetMyInformation(
     @GetUser() user: JwtPayload
   ) {
     const { data, message } = await this.usersService.getMyInformation(user.idx);
 
+    return {
+      data: {
+        user: data
+      },
+      message,
+    };
+  }
+
+  @Get('/:userIdx')
+  async handleGetUserInformation(
+    @Param('userIdx', new ParseIntPipe()) userIdx: number
+  ) {
+    const { data, message } = await this.usersService.getUserInformation(userIdx);
+
+    return {
+      data: {
+        user: data
+      },
+      message,
+    };
+  }
+
+  @UseGuards(JwtGuard)
+  @UseInterceptors(FileInterceptor('profile_image'))
+  @Patch('/me')
+  async handleUpdateMyInformation(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: UpdateMyInformationDto,
+    @GetUser() user: JwtPayload
+  ) {
+    const { response, fileUUID } = await this.usersService.updateMyInformation(file, body, user.idx);
+
     const _user = {
-      idx: data.idx,
-      nickname: data.nickname,
-      id: data.id,
-      status_message: data.status_message,
-      profile_url: data.profile_url
+      ...response.data,
+      profile_uuid: fileUUID
     };
 
     return {
       data: {
         user: _user
       },
-      message
+      message: response.message,
     };
   }
 
-  @Get('/:userId')
-  async handleGetUserInformation(
-    @Param('userId', ParseIntPipe) userId: number
+  @UseGuards(JwtGuard)
+  @Patch('/password')
+  async handleUpdatePassword(
+    @Body() body: UpdatePasswordDto,
+    @GetUser() user: JwtPayload
   ) {
-    const { data, message } = await this.usersService.getUserInformation(userId);
-
-    const user = {
-      idx: data.idx,
-      nickname: data.nickname,
-      id: data.id,
-      status_message: data.status_message,
-      profile_url: data.profile_url
-    };
+    const { data, message } = await this.usersService.updatePassword(body, user.idx);
 
     return {
       data: {
-        user
+        user: data
       },
-      message
+      message,
     };
-  }
-
-  @Patch()
-  handleUpdateMyInformation() {
-    throw new NotImplementedException();
-  }
-
-  @Patch('password')
-  handleUpdatePassword() {
-    throw new NotImplementedException();
   }
 
   @Get()
@@ -96,7 +106,7 @@ export class UsersController {
       data: {
         users: data
       },
-      message
+      message,
     };
   }
 }
