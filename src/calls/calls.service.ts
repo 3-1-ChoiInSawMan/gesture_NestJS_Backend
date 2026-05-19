@@ -4,11 +4,11 @@ import { GetCallParticipantsResponse } from './dto/core/response/GetCallParticip
 import { JoinCallResponse } from './dto/core/response/JoinCallResponse.interface';
 import { LeaveCallResponse } from './dto/core/response/LeaveCallResponse.interface';
 import { ConfigService } from '@nestjs/config';
-import WebSocket from 'ws';
+import WebSocket, { RawData } from 'ws';
 import type { Server, Socket } from 'socket.io';
 import { Logger } from 'nestjs-pino';
-import { AiMessageDto } from './dto/ai-message.dto';
 import { disconnectWithAuthError } from 'src/common/ws-error.util';
+import { AiMessageDto } from './dto/ai-message.dto';
 
 @Injectable()
 export class CallsService {
@@ -16,7 +16,7 @@ export class CallsService {
   private readonly clients = new Map<string, Socket>();
   private readonly clientParticipants = new Map<number, number>();
   private aiSocket: WebSocket;
-  private server!: Server;
+  private server?: Server;
 
   constructor(
     private readonly coreHttpService: CoreHttpService,
@@ -38,7 +38,7 @@ export class CallsService {
       this.logger.log('AI WebSocket Connected');
     });
 
-    this.aiSocket.on('message', (data: AiMessageDto) => {
+    this.aiSocket.on('message', (data: RawData) => {
       this.handleAiMessage(data);
     });
   };
@@ -67,14 +67,31 @@ export class CallsService {
   }
 
   private handleAiMessage(
-    data: AiMessageDto
+    data: RawData
   ) {
-    const parseData = JSON.parse(data.toString());
+    let parseData: Partial<AiMessageDto>;
 
-    const text: string = parseData.text;
-    const callRoomIdx: number = parseData.callRoomIdx;
+    try {
+      parseData = JSON.parse(data.toString());
+    } catch {
+      this.logger.warn('Dropped malformed AI message');
 
-    if (!text) return;
+      return;
+    }
+
+    const { text, callRoomIdx } = parseData;
+
+    if (typeof text !== 'string' || text.length === 0 || !Number.isInteger(callRoomIdx)) {
+      this.logger.warn({ parseData }, 'Dropped invalid AI message');
+
+      return;
+    }
+
+    if (!this.server) {
+      this.logger.warn('Server not initialized; message dropped');
+
+      return;
+    }
     
     this.server.to(`call_room:${callRoomIdx}`).emit('translation', {
       text,
