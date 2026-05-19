@@ -1,19 +1,28 @@
-import { Controller, NotImplementedException, Post } from '@nestjs/common';
+import { Body, Controller, NotImplementedException, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { Logger } from 'nestjs-pino';
+import { LoginDto } from './dto/request/login.dto';
+import { EmailVerificationDto } from './dto/request/email-verification.dto';
+import { RegisterDto } from './dto/request/register.dto';
 
 @Controller({ path: '/auth', version: '1' })
 export class AuthControllerV1 {
   constructor (
     private readonly authService: AuthService,
-    private readonly logger: Logger,
   ) { };
   /* 계정 관련 로직 */
 
   @Post('login')
-  handleLogin() {
-    this.logger.fatal('CHEEKI')
-    throw new NotImplementedException();
+  async handleLogin(
+    @Body() body: LoginDto,
+  ) {
+    const { data, message } = await this.authService.login(body);
+
+    return {
+      data: {
+        user: data
+      },
+      message,
+    };
   }
 
   @Post('email-send')
@@ -22,13 +31,31 @@ export class AuthControllerV1 {
   }
 
   @Post('email-verification')
-  handleVerifyEmail() {
-    throw new NotImplementedException();
+  async handleVerifyEmail(
+    @Body() body: EmailVerificationDto,
+  ) {
+    const { data, message } = await this.authService.verifyEmail(body);
+
+    return {
+      data: {
+        email_verification: data
+      },
+      message,
+    };
   }
 
   @Post('register')
-  handleRegister() {
-    throw new NotImplementedException();
+  async handleRegister(
+    @Body() body: RegisterDto,
+  ) {
+    const { data, message } = await this.authService.register(body);
+
+    return {
+      data: {
+        user: data
+      },
+      message,
+    };
   }
 
   // 쿠키 기반 인증 시스템 사용 할건지 합의 필요
