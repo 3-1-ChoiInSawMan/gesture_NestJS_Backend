@@ -71,7 +71,7 @@ export interface CallRoomSummaryResponse {
   isPublic: boolean;
   hasPassword: boolean;
   thumbnailUrl: string | null;
-  createdAt: Date;
+  createdAt: string;
   host: HostSummaryResponse;
 }
 
