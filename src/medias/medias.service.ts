@@ -27,15 +27,12 @@ export class MediasService {
       contentType: file.mimetype,
     });
 
-    const response = await this.coreHttpService.post<MediaUploadResponse>(`/medias/upload`,
-      formData,
-      {
-        headers: {
-          ...formData.getHeaders(),
-          'X-User-Id': userIdx
-        }
+    const response = await this.coreHttpService.post<MediaUploadResponse>(`/medias/upload`, formData, {
+      headers: {
+        ...formData.getHeaders(),
+        'X-User-Id': userIdx
       }
-    )
+    });
 
     return response;
   }
@@ -50,7 +47,7 @@ export class MediasService {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return response;
   }

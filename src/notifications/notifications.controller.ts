@@ -70,7 +70,7 @@ export class NotificationsController {
 
     return {
       data: {
-        notification_settings: data
+        notificationSettings: data
       },
       message
     };
@@ -88,7 +88,7 @@ export class NotificationsController {
 
     return {
       data: {
-        notification_setting: data
+        notificationSetting: data
       },
       message
     };

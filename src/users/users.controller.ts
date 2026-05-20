@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { GetUser } from 'src/decorators/get-user.decorator';
-import { type JwtPayload } from 'src/common/jwt-payload.interface';
+import type { JwtPayload } from 'src/common/jwt-payload.interface';
 import { JwtGuard } from 'src/guards/jwt.guard';
 import { UpdatePasswordDto } from './dto/client/request/update-password.dto';
 import { UpdateMyInformationDto } from './dto/client/request/update-my-information.dto';
@@ -69,7 +69,7 @@ export class UsersControllerV1 {
 
     const _user = {
       ...response.data,
-      profile_uuid: fileUUID
+      profileUUID: fileUUID
     };
 
     return {

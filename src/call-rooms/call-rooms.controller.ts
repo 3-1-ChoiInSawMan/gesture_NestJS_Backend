@@ -47,7 +47,7 @@ export class CallRoomsController {
 
     const _room = {
       ...response.data,
-      thumbnail_uuid: fileUUID
+      thumbnailUUID: fileUUID
     };
 
     return {

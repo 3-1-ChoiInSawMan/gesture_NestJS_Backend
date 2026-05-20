@@ -27,10 +27,10 @@ export class UpdateCallRoomDto {
   @IsOptional()
   @IsNotEmpty()
   @IsNumber()
-  max_participant: number;
+  maxParticipant: number;
 
   @IsOptional()
   @IsNotEmpty()
   @IsBoolean()
-  is_public: boolean;
+  isPublic: boolean;
 }

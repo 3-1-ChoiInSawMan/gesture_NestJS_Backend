@@ -12,7 +12,7 @@ export class CallsController {
 
   // 통화 참여
   @UseGuards(JwtGuard)
-  @Post('/:roomIdx')
+  @Post('/:roomIdx/join')
   async handleJoinCall(
     @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
     @GetUser() user: JwtPayload
@@ -29,7 +29,7 @@ export class CallsController {
 
   // 통화 나가기
   @UseGuards(JwtGuard)
-  @Delete('/:roomIdx')
+  @Delete('/:roomIdx/leave')
   async handleLeaveCall(
     @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
     @GetUser() user: JwtPayload
@@ -46,7 +46,7 @@ export class CallsController {
 
   // 통화 참여자 조회
   @UseGuards(JwtGuard)
-  @Get('/:roomIdx')
+  @Get('/:roomIdx/participants')
   async handleGetParticipantsByRoomIdx(
     @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
     @GetUser() user: JwtPayload
