@@ -23,9 +23,9 @@ export class CreateCallRoomDto {
 
   @IsNotEmpty()
   @IsNumber()
-  max_participant: number;
+  maxParticipant: number;
 
   @IsNotEmpty()
   @IsBoolean()
-  is_public: boolean;
+  isPublic: boolean;
 }

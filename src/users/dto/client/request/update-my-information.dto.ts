@@ -7,5 +7,5 @@ export class UpdateMyInformationDto {
 
   @IsOptional()
   @IsNotEmpty()
-  status_message: string;
+  statusMessage: string;
 }

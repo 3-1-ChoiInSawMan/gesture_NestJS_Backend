@@ -10,6 +10,7 @@ import { CoreHttpService } from 'src/core-http/core-http.service';
 import { CreateCallRoomResponse } from './dto/core/response/CreateCallRoomResponse.interface';
 import { JoinRoomResponse } from './dto/core/response/JoinRoomResponse.interface';
 import { GetCallRoomsResponse } from './dto/core/response/GetCallRoomsResponse.interface';
+import { convertKeysToSnakeCase } from 'src/utils/convert-snake';
 
 @Injectable()
 export class CallRoomsService {
@@ -23,11 +24,13 @@ export class CallRoomsService {
     roomIdx: number,
     userIdx: number
   ) {
+    body = convertKeysToSnakeCase(body);
+
     const response = await this.coreHttpService.post<JoinRoomResponse>(`/rooms/${roomIdx}/join`, body, {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return response;
   }
@@ -37,6 +40,8 @@ export class CallRoomsService {
     body: CreateCallRoomDto,
     userIdx: number
   ) {
+    body = convertKeysToSnakeCase(body);
+
     const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
 
     const response = await this.coreHttpService.post<CreateCallRoomResponse>('/rooms', {
@@ -46,7 +51,7 @@ export class CallRoomsService {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return {
       response,
@@ -59,7 +64,7 @@ export class CallRoomsService {
   ) {
     const response = await this.coreHttpService.get<GetCallRoomsResponse>('/rooms', {
       params: query
-    })
+    });
 
     return response;
   }
@@ -69,7 +74,7 @@ export class CallRoomsService {
   ) {
     const response = await this.coreHttpService.get<GetCallRoomsResponse>('/rooms/search', {
       params: query
-    })
+    });
 
     return response;
   }
@@ -77,7 +82,7 @@ export class CallRoomsService {
   async getCallRoomById(
     roomIdx: number,
   ) {
-    const response = await this.coreHttpService.get<CreateCallRoomResponse>(`/rooms/${roomIdx}`)
+    const response = await this.coreHttpService.get<CreateCallRoomResponse>(`/rooms/${roomIdx}`);
 
     return response;
   }
@@ -90,6 +95,8 @@ export class CallRoomsService {
   ) {
     const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
 
+    body = convertKeysToSnakeCase(body);
+
     const response = await this.coreHttpService.patch<CreateCallRoomResponse>(`/rooms/${roomIdx}`, {
       ...body,
       thumbnail_uuid: _file?.data.mediaUuid ?? null,
@@ -97,7 +104,7 @@ export class CallRoomsService {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return {
       response,
@@ -113,7 +120,7 @@ export class CallRoomsService {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return response;
   }
@@ -126,7 +133,7 @@ export class CallRoomsService {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return response;
   }

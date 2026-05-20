@@ -8,6 +8,7 @@ import { UsersWithdrawResponse } from './dto/core/response/UsersWithdrawResponse
 import { UsersMeResponse } from './dto/core/response/UsersMeResponse.interface';
 import { SearchedUsersInformationResponse, UpdatedUsersInformationResponse, UsersInformationResponse } from './dto/core/response/UsersInformationResponse.interface';
 import { UsersPasswordResponse } from './dto/core/response/UsersPasswordResponse.interface';
+import { convertKeysToSnakeCase } from 'src/utils/convert-snake';
 
 @Injectable()
 export class UsersService {
@@ -23,7 +24,7 @@ export class UsersService {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return response;
   }
@@ -35,7 +36,7 @@ export class UsersService {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return response;
   }
@@ -43,7 +44,7 @@ export class UsersService {
   async getUserInformation(
     userIdx: number
   ) {
-    const response = await this.coreHttpService.get<UsersInformationResponse>(`/users/${userIdx}`);
+    const response = await this.coreHttpService.get<UsersInformationResponse>(`/users/${userIdx}`);;
 
     return response;
   }
@@ -55,14 +56,16 @@ export class UsersService {
   ) {
     const _file = file ? await this.mediasService.uploadMedia(file, userIdx) : undefined;
 
+    body = convertKeysToSnakeCase(body);
+
     const response = await this.coreHttpService.patch<UpdatedUsersInformationResponse>('/users/me', {
       ...body,
-      profile_image_uuid: _file?.data.mediaUuid ?? null
+      profileImageUUID: _file?.data.mediaUuid ?? null
     }, {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return {
       response,
@@ -74,11 +77,13 @@ export class UsersService {
     body: UpdatePasswordDto,
     userIdx: number
   ) {
+    body = convertKeysToSnakeCase(body);
+    
     const response = await this.coreHttpService.patch<UsersPasswordResponse>('/users/password', body, {
       headers: {
         'X-User-Id': userIdx
       }
-    })
+    });
 
     return response;
   }
@@ -86,7 +91,7 @@ export class UsersService {
   async getSpecifyUserInformation(
     userId: string
   ) {
-    const response = await this.coreHttpService.get<SearchedUsersInformationResponse[]>(`/users?userId=${userId}`)
+    const response = await this.coreHttpService.get<SearchedUsersInformationResponse[]>(`/users?userId=${userId}`);
 
     return response;
   }
