@@ -13,10 +13,19 @@ import { AiMessageDto } from './dto/ai-message.dto';
 @Injectable()
 export class CallsService {
   private readonly AI_WS_URL: string;
+
   private readonly clients = new Map<string, Socket>();
   private readonly clientParticipants = new Map<number, number>();
-  private aiSocket: WebSocket;
+
+  private aiSocket?: WebSocket;
   private server?: Server;
+
+  private reconnectTimer?: NodeJS.Timeout;
+  private reconnectAttempts = 0;
+  private isShuttingDown = false;
+
+  private readonly AI_RECONNECT_BASE_DELAY = 1000;
+  private readonly AI_RECONNECT_MAX_DELAY = 30000;
 
   constructor(
     private readonly coreHttpService: CoreHttpService,
@@ -24,24 +33,89 @@ export class CallsService {
     private readonly logger: Logger,
   ) {
     this.AI_WS_URL = this.configService.getOrThrow<string>('AI_WS_URL');
-    this.aiSocket = new WebSocket(`${this.AI_WS_URL}/cc?debug=1&ignore_hands_down=1`);
 
-    this.aiSocket.on('error', (error) => {
-      this.logger.error({ error }, 'AI WebSocket closed');
-    });
+    this.connectAiSocket();
+  };
 
-    this.aiSocket.on('close', (code, reason) => {
-      this.logger.warn({ code, reason: reason.toString() }, 'AI WebSocket closed');
-    });
+  private connectAiSocket() {
+    if (this.isShuttingDown) {
+      return;
+    }
+
+    if (
+      this.aiSocket &&
+      (
+        this.aiSocket.readyState == WebSocket.OPEN ||
+        this.aiSocket.readyState == WebSocket.CONNECTING
+      )
+    ) {
+      return;
+    }
+
+    const url = `${this.AI_WS_URL}/cc?debug=1&ignore_hands_down=1`;
+
+    this.logger.log({ url }, 'Connecting to AI WebSocket');
+
+    this.aiSocket = new WebSocket(url);
 
     this.aiSocket.on('open', () => {
-      this.logger.log('AI WebSocket Connected');
+      this.reconnectAttempts = 0;
+
+      this.logger.log('AI WebSocket connected');
     });
 
     this.aiSocket.on('message', (data: RawData) => {
       this.handleAiMessage(data);
     });
-  };
+
+    this.aiSocket.on('error', (error) => {
+      this.logger.error({ err: error }, 'AI WebSocket error');
+    });
+
+    this.aiSocket.on('close', (code, reason) => {
+      this.logger.warn(
+        {
+          code,
+          reason: reason.toString(),
+        },
+        'AI WebSocket closed',
+      );
+
+      this.aiSocket = undefined;
+
+      this.scheduleAiReconnect();
+    });
+  }
+
+  private scheduleAiReconnect() {
+    if (this.isShuttingDown) {
+      return;
+    }
+
+    if (this.reconnectTimer) {
+      return;
+    }
+
+    this.reconnectAttempts += 1;
+
+    const delay = Math.min(
+      this.AI_RECONNECT_BASE_DELAY * 2 ** (this.reconnectAttempts - 1),
+      this.AI_RECONNECT_MAX_DELAY,
+    );
+
+    this.logger.warn(
+      {
+        attempt: this.reconnectAttempts,
+        delay,
+      },
+      'Scheduling AI WebSocket reconnect',
+    );
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      this.connectAiSocket();
+    }, delay);
+  }
 
   public connectSocket(
     client: Socket,
@@ -103,20 +177,23 @@ export class CallsService {
     frame: object,
     client: Socket
   ) {
-    if (this.aiSocket.readyState !== WebSocket.OPEN) {
+    if (!this.aiSocket || this.aiSocket.readyState !== WebSocket.OPEN) {
       this.logger.warn('AI WebSocket is not open; frame dropped');
 
       return;
     }
 
-    this.aiSocket.send(JSON.stringify({
-      frame,
-      callRoomIdx: client.data.callRoomIdx
-    }), (error) => {
-      if (error) {
-        this.logger.error('AI WebSocket send failed:', error);
-      }
-    });
+    this.aiSocket.send(
+      JSON.stringify({
+        frame,
+        callRoomIdx: client.data.callRoomIdx,
+      }),
+      (error) => {
+        if (error) {
+          this.logger.error({ err: error }, 'AI WebSocket send failed');
+        }
+      },
+    );
   }
 
   public async joinCall(
