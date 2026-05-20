@@ -56,6 +56,12 @@
 }
 */
 
+export interface HostSummaryResponse {
+  userIdx: number;
+  userName: string;
+  profileUrl: string;
+}
+
 export interface CallRoomSummaryResponse {
   roomIdx: number;
   title: string;
@@ -65,7 +71,8 @@ export interface CallRoomSummaryResponse {
   isPublic: boolean;
   hasPassword: boolean;
   thumbnailUrl: string | null;
-  hostUserIdx: number;
+  createdAt: string;
+  host: HostSummaryResponse;
 }
 
 export interface PageSortResponse {
