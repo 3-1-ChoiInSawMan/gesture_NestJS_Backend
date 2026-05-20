@@ -60,7 +60,7 @@ export class UsersService {
 
     const response = await this.coreHttpService.patch<UpdatedUsersInformationResponse>('/users/me', {
       ...body,
-      profileImageUUID: _file?.data.mediaUuid ?? null
+      profile_image_uuid: _file?.data.mediaUuid ?? null
     }, {
       headers: {
         'X-User-Id': userIdx
@@ -91,7 +91,9 @@ export class UsersService {
   async getSpecifyUserInformation(
     userId: string
   ) {
-    const response = await this.coreHttpService.get<SearchedUsersInformationResponse[]>(`/users?userId=${userId}`);
+    const _userId = encodeURIComponent(userId);
+
+    const response = await this.coreHttpService.get<SearchedUsersInformationResponse[]>(`/users?userId=${_userId}`);
 
     return response;
   }
