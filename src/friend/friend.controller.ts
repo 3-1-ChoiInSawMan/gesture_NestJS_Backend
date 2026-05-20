@@ -18,6 +18,18 @@ export class FriendControllerV1 {
 
   @UseGuards(JwtGuard)
   @Get()
+  public async getFriendList(@GetUser() user: JwtPayload) {
+    return this.friendService.getFriendList(user.idx);
+  }
+
+  @UseGuards(JwtGuard)
+  @Get('/count')
+  public async getFriendCount(@GetUser() user: JwtPayload) {
+    return this.friendService.getFriendCount(user.idx);
+  }
+
+  @UseGuards(JwtGuard)
+  @Get('/pending')
   public async getPendingFriendRequests(@GetUser() user: JwtPayload) {
     return this.friendService.getPendingFriendRequests(user.idx);
   }

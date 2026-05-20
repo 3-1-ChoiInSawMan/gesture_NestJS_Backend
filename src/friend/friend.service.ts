@@ -5,6 +5,8 @@ import { Logger } from 'nestjs-pino';
 import { FriendStatus } from './enum/FriendStatus.enum';
 import { CoreHttpService } from 'src/core-http/core-http.service';
 import { Unfriend } from './coreDto/response/Unfriend.interface';
+import { FriendData } from './coreDto/response/GetFriendList.interface';
+import { FriendCount } from './coreDto/response/GetFriendCount.interface';
 
 @Injectable()
 export class FriendService {
@@ -28,6 +30,26 @@ export class FriendService {
     )
 
     this.logger.debug('Core → BFF RES | 친구 요청 전송 성공');
+    return response;
+  }
+
+  public async getFriendList(userIdx: number) {
+    const response = await this.coreHttpService.get<FriendData[]>('/friends/list', {
+      headers: {
+        'X-User-Id': userIdx,
+      }
+    });
+
+    return response;
+  }
+
+  public async getFriendCount(userIdx: number) {
+    const response = await this.coreHttpService.get<FriendCount>('/friends/count', {
+      headers: {
+        'X-User-Id': userIdx,
+      }
+    });
+
     return response;
   }
 
