@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/request/login.dto';
 import { EmailVerificationDto } from './dto/request/email-verification.dto';
 import { RegisterDto } from './dto/request/register.dto';
+import { EmailSendDto } from './dto/request/email-send.dto';
 
 @Controller({ path: '/auth', version: '1' })
 export class AuthControllerV1 {
@@ -26,8 +27,15 @@ export class AuthControllerV1 {
   }
 
   @Post('email-send')
-  handleSendEmail() {
-    throw new NotImplementedException();
+  async handleSendEmail(@Body() body: EmailSendDto) {
+    const { data, message } = await this.authService.sendEmailVerification(body);
+
+    return {
+      data: {
+        data
+      },
+      message
+    }
   }
 
   @Post('email-verification')
@@ -58,7 +66,6 @@ export class AuthControllerV1 {
     };
   }
 
-  // 쿠키 기반 인증 시스템 사용 할건지 합의 필요
   @Post('refresh')
   handleRefresh() {
     throw new NotImplementedException();
@@ -76,6 +83,4 @@ export class AuthControllerV1 {
   handleLogout() {
     throw new NotImplementedException(); 
   }  
-
-
 }

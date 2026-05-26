@@ -9,6 +9,8 @@ import { EmailVerificationDto } from './dto/request/email-verification.dto';
 import { EmailVerificationResponse } from './dto/core/response/EmailVerificationResponse.interface';
 import { RegisterDto } from './dto/request/register.dto';
 import { RegisterResponse } from './dto/core/response/RegisterResponse.interface';
+import { EmailSendDto } from './dto/request/email-send.dto';
+import { EmailSendVerification } from './dto/core/response/EmailSendVerificationResponse.interface';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +26,10 @@ export class AuthService {
 
   public async login(body: LoginDto) {
     return await this.coreHttpService.post<LoginResponse>('/auth/login', body);
+  }
+
+  public async sendEmailVerification(body: EmailSendDto) {
+    return await this.coreHttpService.post<EmailSendVerification>('/auth/email-send', body);
   }
 
   public async verifyEmail(body: EmailVerificationDto) {
