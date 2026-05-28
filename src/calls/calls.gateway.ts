@@ -7,6 +7,7 @@ import { AuthService } from 'src/auth/auth.service';
 import { disconnectWithAuthError } from 'src/common/ws-error.util';
 import { WsGuard } from 'src/guards/ws.guard';
 import { CallsService } from './calls.service';
+import { CallRoomPayloadDto, SignalingPayloadDto } from './dto/call-signaling.dto';
 
 @WebSocketGateway({
   namespace: '/calls'
@@ -31,18 +32,72 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     this.callsService.sendFrame(frame, client);
   }
 
-  async handleConnection(client: Socket) {
-    const token = client.handshake.headers.authorization?.split(' ')[1];
-    const callRoomIdx = Number(client.handshake.query.call_room_idx);
+  @UseGuards(WsGuard)
+  @SubscribeMessage('join_call')
+  handleJoinCall(
+    @MessageBody() payload: CallRoomPayloadDto,
+    @ConnectedSocket() client: Socket
+  ) {
+    const { callRoomIdx } = payload;
 
-    if (!token) {
-      disconnectWithAuthError(client, 'AUTH_007');
+    if (!this.callsService.isValidCallRoomIdx(callRoomIdx)) {
+      disconnectWithAuthError(client, 'COMMON_400');
 
       return;
     }
 
-    if (!callRoomIdx || !Number.isInteger(callRoomIdx) || callRoomIdx <= 0) {
+    this.callsService.joinSignalingRoom(client, callRoomIdx);
+  }
+
+  @UseGuards(WsGuard)
+  @SubscribeMessage('offer')
+  handleOffer(
+    @MessageBody() payload: SignalingPayloadDto,
+    @ConnectedSocket() client: Socket
+  ) {
+    this.callsService.relaySignalingMessage('offer', payload, client);
+  }
+
+  @UseGuards(WsGuard)
+  @SubscribeMessage('answer')
+  handleAnswer(
+    @MessageBody() payload: SignalingPayloadDto,
+    @ConnectedSocket() client: Socket
+  ) {
+    this.callsService.relaySignalingMessage('answer', payload, client);
+  }
+
+  @UseGuards(WsGuard)
+  @SubscribeMessage('ice_candidate')
+  handleIceCandidate(
+    @MessageBody() payload: SignalingPayloadDto,
+    @ConnectedSocket() client: Socket
+  ) {
+    this.callsService.relaySignalingMessage('ice_candidate', payload, client);
+  }
+
+  @UseGuards(WsGuard)
+  @SubscribeMessage('leave_call')
+  handleLeaveCall(
+    @MessageBody() payload: CallRoomPayloadDto,
+    @ConnectedSocket() client: Socket
+  ) {
+    const { callRoomIdx } = payload;
+
+    if (!this.callsService.isValidCallRoomIdx(callRoomIdx)) {
       disconnectWithAuthError(client, 'COMMON_400');
+
+      return;
+    }
+
+    this.callsService.leaveSignalingRoom(client, callRoomIdx);
+  }
+
+  async handleConnection(client: Socket) {
+    const token = client.handshake.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+      disconnectWithAuthError(client, 'AUTH_007');
 
       return;
     }
@@ -51,11 +106,8 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       const payload = await this.authService.verifyToken(token);
 
       client.data.user = payload;
-      client.data.callRoomIdx = callRoomIdx;
       
       this.logger.log(`Connected: ${client.id}`);
-
-      this.callsService.connectSocket(client, callRoomIdx);
 
       return;
     } catch (error) {

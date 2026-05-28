@@ -9,6 +9,9 @@ import type { Server, Socket } from 'socket.io';
 import { Logger } from 'nestjs-pino';
 import { disconnectWithAuthError } from 'src/common/ws-error.util';
 import { AiMessageDto } from './dto/ai-message.dto';
+import { SignalingPayloadDto } from './dto/call-signaling.dto';
+
+type SignalingEvent = 'offer' | 'answer' | 'ice_candidate';
 
 @Injectable()
 export class CallsService {
@@ -123,21 +126,94 @@ export class CallsService {
   ) {
     this.clients.set(client.id, client);
 
-    const participantRoomIdx = this.clientParticipants.get(client.data.user.idx);
-
-    if (participantRoomIdx !== callRoomIdx) {
-      disconnectWithAuthError(client, 'CALL_002');
-
-      return;
-    }
-
-    client.join(`call_room:${callRoomIdx}`);
+    this.joinSignalingRoom(client, callRoomIdx);
   }
 
   public disconnectSocket(
     client: Socket
   ) {
+    this.leaveSignalingRoom(client);
     this.clients.delete(client.id);
+  }
+
+  public isValidCallRoomIdx(
+    callRoomIdx: unknown
+  ): callRoomIdx is number {
+    return Number.isInteger(callRoomIdx) && Number(callRoomIdx) > 0;
+  }
+
+  public joinSignalingRoom(
+    client: Socket,
+    callRoomIdx: number
+  ) {
+    if (!this.isValidCallRoomIdx(callRoomIdx)) {
+      disconnectWithAuthError(client, 'COMMON_400');
+
+      return;
+    }
+
+    const previousCallRoomIdx = Number(client.data.callRoomIdx);
+
+    if (this.isValidCallRoomIdx(previousCallRoomIdx) && previousCallRoomIdx !== callRoomIdx) {
+      this.leaveSignalingRoom(client, previousCallRoomIdx);
+    }
+
+    const roomName = this.getCallRoomName(callRoomIdx);
+
+    if (client.rooms.has(roomName)) {
+      return;
+    }
+
+    client.data.callRoomIdx = callRoomIdx;
+    this.clients.set(client.id, client);
+    client.join(roomName);
+
+    client.to(roomName).emit('user_joined', this.getSignalingUserPayload(client, callRoomIdx));
+  }
+
+  public leaveSignalingRoom(
+    client: Socket,
+    callRoomIdx?: number
+  ) {
+    const resolvedCallRoomIdx = callRoomIdx ?? this.getClientCallRoomIdx(client);
+
+    if (!this.isValidCallRoomIdx(resolvedCallRoomIdx)) {
+      return;
+    }
+
+    const roomName = this.getCallRoomName(resolvedCallRoomIdx);
+
+    if (!client.rooms.has(roomName)) {
+      return;
+    }
+
+    client.to(roomName).emit('user_left', this.getSignalingUserPayload(client, resolvedCallRoomIdx));
+    client.leave(roomName);
+
+    if (client.data.callRoomIdx === resolvedCallRoomIdx) {
+      client.data.callRoomIdx = undefined;
+    }
+  }
+
+  public relaySignalingMessage(
+    event: SignalingEvent,
+    payload: SignalingPayloadDto,
+    client: Socket
+  ) {
+    const { callRoomIdx } = payload;
+
+    if (!this.isValidCallRoomIdx(callRoomIdx) || !client.rooms.has(this.getCallRoomName(callRoomIdx))) {
+      disconnectWithAuthError(client, 'CALL_002');
+
+      return;
+    }
+
+    client.to(this.getCallRoomName(callRoomIdx)).emit(event, {
+      ...this.toRecord(payload),
+      callRoomIdx,
+      fromSocketId: client.id,
+      fromUserIdx: client.data.user?.idx,
+    });
   }
 
   private handleAiMessage(
@@ -177,6 +253,12 @@ export class CallsService {
     frame: object,
     client: Socket
   ) {
+    if (!this.isValidCallRoomIdx(client.data.callRoomIdx)) {
+      disconnectWithAuthError(client, 'CALL_002');
+
+      return;
+    }
+
     if (!this.aiSocket || this.aiSocket.readyState !== WebSocket.OPEN) {
       this.logger.warn('AI WebSocket is not open; frame dropped');
 
@@ -243,5 +325,42 @@ export class CallsService {
     server: Server
   ) {
     this.server = server;
+  }
+
+  private getClientCallRoomIdx(
+    client: Socket
+  ) {
+    const callRoomIdx = Number(client.data.callRoomIdx);
+
+    if (this.isValidCallRoomIdx(callRoomIdx)) {
+      return callRoomIdx;
+    }
+  }
+
+  private getCallRoomName(
+    callRoomIdx: number
+  ) {
+    return `call_room:${callRoomIdx}`;
+  }
+
+  private getSignalingUserPayload(
+    client: Socket,
+    callRoomIdx: number
+  ) {
+    return {
+      callRoomIdx,
+      socketId: client.id,
+      userIdx: client.data.user?.idx,
+    };
+  }
+
+  private toRecord(
+    payload: unknown
+  ) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return {};
+    }
+
+    return payload as Record<string, unknown>;
   }
 }
