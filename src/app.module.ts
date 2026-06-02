@@ -12,6 +12,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { MediasModule } from './medias/medias.module';
 import { CallsModule } from './calls/calls.module';
 import { CoreHttpModule } from './core-http/core-http.module';
+import { QuickSlotModule } from './quick-slot/quick-slot.module';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -42,6 +43,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
     NotificationsModule,
     MediasModule,
     CallsModule,
+    QuickSlotModule,
   ],
   controllers: [AppControllerV1],
   providers: [AppService],
