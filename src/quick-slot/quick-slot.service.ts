@@ -64,7 +64,7 @@ export class QuickSlotService {
       quick_slot_ids: body.quickSlotIds,
     };
 
-    return this.coreHttpService.patch<SetPresetResponse>('/quick-slots/preset', request, {
+    return this.coreHttpService.patch<SetPresetResponse>('/quick-slots', request, {
       headers: {
         'X-User-Id': userIdx,
       },
