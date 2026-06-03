@@ -94,7 +94,8 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   }
 
   async handleConnection(client: Socket) {
-    const token = client.handshake.headers.authorization?.split(' ')[1];
+    const handshake = client.handshake;
+    const token: string = handshake.auth?.token || handshake.headers.authorization?.split(' ')[1];
 
     if (!token) {
       disconnectWithAuthError(client, 'AUTH_007');
