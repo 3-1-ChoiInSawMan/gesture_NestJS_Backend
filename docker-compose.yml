@@ -1,0 +1,18 @@
+services:
+  # NestJS BFF
+  app:
+    build: .
+    container_name: gesture-bff
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "8081:8080"

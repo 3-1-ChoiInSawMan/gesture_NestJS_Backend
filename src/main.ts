@@ -11,7 +11,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const reflector = app.get(Reflector);
 
-  // app.useLogger(app.get(Logger));
+  app.useLogger(app.get(Logger));
 
   const configService = app.get(ConfigService);
 

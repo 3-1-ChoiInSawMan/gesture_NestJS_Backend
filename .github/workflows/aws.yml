@@ -51,6 +51,17 @@ jobs:
           --restart unless-stopped \
           -d -p "${{ vars.SERVER_PORT }}:${{ vars.SERVER_PORT }}" \
           gesture-bff
+
+          mkdir -p ~/dozzle-data
+          printf 'users:\n  admin:\n    name: Admin\n    password: "%s"\n' '${{ secrets.DOZZLE_PASSWORD_HASH }}' > ~/dozzle-data/users.yml
+          docker rm -f dozzle || true
+          docker run --name dozzle \
+          -e "DOZZLE_AUTH_PROVIDER=simple" \
+          -v /var/run/docker.sock:/var/run/docker.sock:ro \
+          -v ~/dozzle-data:/data \
+          --restart unless-stopped \
+          -d -p 8081:8080 \
+          amir20/dozzle:latest
         EOF
 
     - name: Check Service Health
