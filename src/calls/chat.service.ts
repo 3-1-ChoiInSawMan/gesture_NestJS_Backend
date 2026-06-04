@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Logger } from "nestjs-pino";
 import type { Socket } from 'socket.io';
 import type { JwtPayload } from "src/common/jwt-payload.interface";
 import { disconnectWithAuthError } from "src/common/ws-error.util";
@@ -6,6 +7,10 @@ import { ChatMessagePayloadDto, ChatRoomPayloadDto, ChatRoomType } from "./dto/c
 
 @Injectable()
 export class ChatService {
+  constructor(
+    private readonly logger: Logger,
+  ) { };
+
   /**
    * roomType에 따라 SocketIO 룸 이름 생성
    * - call: 통화방 번호 그대로 사용 → "chat:call:42"
@@ -48,6 +53,8 @@ export class ChatService {
     }
 
     void client.join(roomName);
+
+    this.logger.log({ userIdx, payload, roomName, rooms: [...client.rooms] }, '[chat] joined room');
   }
 
   public leaveRoom(client: Socket,payload: ChatRoomPayloadDto) {
@@ -73,7 +80,10 @@ export class ChatService {
   public relayMessage(client: Socket,payload: ChatMessagePayloadDto) {
     const userIdx = this.getUser(client)?.idx;
 
+    this.logger.log({ userIdx, payload, rooms: [...client.rooms] }, '[chat] relayMessage called');
+
     if (!this.isValidIdx(payload.targetIdx) || !this.isValidIdx(userIdx)) {
+      this.logger.warn({ userIdx, targetIdx: payload.targetIdx }, '[chat] CHAT_001: invalid idx');
       disconnectWithAuthError(client, 'CHAT_001');
 
       return;
@@ -82,6 +92,7 @@ export class ChatService {
     const roomName = this.getRoomName(payload.roomType, payload.targetIdx, userIdx);
 
     if (!client.rooms.has(roomName)) {
+      this.logger.warn({ roomName, rooms: [...client.rooms] }, '[chat] CHAT_001: not in room');
       disconnectWithAuthError(client, 'CHAT_001');
 
       return;
