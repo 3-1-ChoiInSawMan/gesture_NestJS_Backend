@@ -8,6 +8,7 @@ import { disconnectWithAuthError } from 'src/common/ws-error.util';
 import { WsGuard } from 'src/guards/ws.guard';
 import { CallsService } from './calls.service';
 import { CallRoomPayloadDto, SignalingPayloadDto } from './dto/call-signaling.dto';
+import { SendFrameDto } from './dto/send-frame.dto';
 
 @WebSocketGateway({
   namespace: '/calls'
@@ -26,10 +27,10 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   @UseGuards(WsGuard)
   @SubscribeMessage('send_frame')
   handleSendFrame(
-    @MessageBody() frame: object,
+    @MessageBody() payload: SendFrameDto,
     @ConnectedSocket() client: Socket
   ) {
-    this.callsService.sendFrame(frame, client);
+    this.callsService.sendFrame(payload, client);
   }
 
   @UseGuards(WsGuard)

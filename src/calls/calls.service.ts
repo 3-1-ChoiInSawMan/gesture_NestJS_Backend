@@ -7,11 +7,17 @@ import { ConfigService } from '@nestjs/config';
 import WebSocket, { RawData } from 'ws';
 import type { Server, Socket } from 'socket.io';
 import { Logger } from 'nestjs-pino';
-import { disconnectWithAuthError } from 'src/common/ws-error.util';
+import { disconnectWithAuthError, emitWsError } from 'src/common/ws-error.util';
 import { AiMessageDto } from './dto/ai-message.dto';
 import { SignalingPayloadDto } from './dto/call-signaling.dto';
+import { SendFrameDto } from './dto/send-frame.dto';
 
 type SignalingEvent = 'offer' | 'answer' | 'ice_candidate';
+
+type PendingFrameRequest = {
+  requestId: number;
+  userIdx: number;
+};
 
 @Injectable()
 export class CallsService {
@@ -19,10 +25,12 @@ export class CallsService {
 
   private readonly clients = new Map<string, Socket>();
   private readonly clientParticipants = new Map<number, number>();
+  private readonly pendingFrameRequests = new Map<number, PendingFrameRequest[]>();
 
   private aiSocket?: WebSocket;
   private server?: Server;
 
+  private nextFrameRequestId = 0;
   private reconnectTimer?: NodeJS.Timeout;
   private reconnectAttempts = 0;
   private isShuttingDown = false;
@@ -85,6 +93,7 @@ export class CallsService {
       );
 
       this.aiSocket = undefined;
+      this.clearPendingFrameRequests();
 
       this.scheduleAiReconnect();
     });
@@ -203,7 +212,7 @@ export class CallsService {
     const { callRoomIdx } = payload;
 
     if (!this.isValidCallRoomIdx(callRoomIdx) || !client.rooms.has(this.getCallRoomName(callRoomIdx))) {
-      disconnectWithAuthError(client, 'CALL_002');
+      emitWsError(client, 'CALL_002');
 
       return;
     }
@@ -231,8 +240,18 @@ export class CallsService {
 
     const { text, callRoomIdx } = parseData;
 
-    if (typeof text !== 'string' || text.length === 0 || !Number.isInteger(callRoomIdx)) {
-      this.logger.warn({ parseData }, 'Dropped invalid AI message');
+    if (
+      typeof text !== 'string'
+      || text.length === 0
+      || !this.isValidCallRoomIdx(callRoomIdx)
+    ) {
+      return;
+    }
+
+    const pendingFrameRequest = this.shiftPendingFrameRequest(callRoomIdx);
+
+    if (!pendingFrameRequest) {
+      this.logger.warn({ parseData }, 'Dropped AI message without matching frame sender');
 
       return;
     }
@@ -243,18 +262,28 @@ export class CallsService {
       return;
     }
     
-    this.server.to(`call_room:${callRoomIdx}`).emit('translation', {
+    this.server.to(this.getCallRoomName(callRoomIdx)).emit('translation', {
       text,
-      callRoomIdx
+      callRoomIdx,
+      userIdx: pendingFrameRequest.userIdx,
     });
   }
 
   public sendFrame(
-    frame: object,
+    payload: SendFrameDto,
     client: Socket
   ) {
-    if (!this.isValidCallRoomIdx(client.data.callRoomIdx)) {
-      disconnectWithAuthError(client, 'CALL_002');
+    const { frame, callRoomIdx } = payload;
+    const userIdx = this.getClientUserIdx(client);
+
+    if (!Number.isInteger(userIdx)) {
+      emitWsError(client, 'AUTH_001');
+
+      return;
+    }
+
+    if (!this.isValidCallRoomIdx(callRoomIdx) || !client.rooms.has(this.getCallRoomName(callRoomIdx))) {
+      emitWsError(client, 'CALL_002');
 
       return;
     }
@@ -265,13 +294,16 @@ export class CallsService {
       return;
     }
 
+    const requestId = this.pushPendingFrameRequest(callRoomIdx, userIdx);
+
     this.aiSocket.send(
       JSON.stringify({
         frame,
-        callRoomIdx: client.data.callRoomIdx,
+        callRoomIdx,
       }),
       (error) => {
         if (error) {
+          this.removePendingFrameRequest(callRoomIdx, requestId);
           this.logger.error({ err: error }, 'AI WebSocket send failed');
         }
       },
@@ -352,6 +384,82 @@ export class CallsService {
       socketId: client.id,
       userIdx: client.data.user?.idx,
     };
+  }
+
+  private getClientUserIdx(
+    client: Socket
+  ) {
+    const userIdx = client.data.user?.idx;
+
+    if (Number.isInteger(userIdx)) {
+      return userIdx;
+    }
+  }
+
+  private pushPendingFrameRequest(
+    callRoomIdx: number,
+    userIdx: number
+  ) {
+    const requestId = this.createFrameRequestId();
+    const requests = this.pendingFrameRequests.get(callRoomIdx) ?? [];
+
+    requests.push({
+      requestId,
+      userIdx,
+    });
+
+    this.pendingFrameRequests.set(callRoomIdx, requests);
+
+    return requestId;
+  }
+
+  private shiftPendingFrameRequest(
+    callRoomIdx: number
+  ) {
+    const requests = this.pendingFrameRequests.get(callRoomIdx);
+
+    if (!requests || requests.length === 0) {
+      return;
+    }
+
+    const request = requests.shift();
+
+    if (requests.length === 0) {
+      this.pendingFrameRequests.delete(callRoomIdx);
+    }
+
+    return request;
+  }
+
+  private removePendingFrameRequest(
+    callRoomIdx: number,
+    requestId: number
+  ) {
+    const requests = this.pendingFrameRequests.get(callRoomIdx);
+
+    if (!requests) {
+      return;
+    }
+
+    const index = requests.findIndex((request) => request.requestId === requestId);
+
+    if (index !== -1) {
+      requests.splice(index, 1);
+    }
+
+    if (requests.length === 0) {
+      this.pendingFrameRequests.delete(callRoomIdx);
+    }
+  }
+
+  private clearPendingFrameRequests() {
+    this.pendingFrameRequests.clear();
+  }
+
+  private createFrameRequestId() {
+    this.nextFrameRequestId = (this.nextFrameRequestId % Number.MAX_SAFE_INTEGER) + 1;
+
+    return this.nextFrameRequestId;
   }
 
   private toRecord(
