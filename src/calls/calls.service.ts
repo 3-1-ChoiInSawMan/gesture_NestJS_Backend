@@ -14,17 +14,23 @@ import { SendFrameDto } from './dto/send-frame.dto';
 
 type SignalingEvent = 'offer' | 'answer' | 'ice_candidate';
 
+type PendingFrameRequest = {
+  requestId: number;
+  userIdx: number;
+};
+
 @Injectable()
 export class CallsService {
   private readonly AI_WS_URL: string;
 
   private readonly clients = new Map<string, Socket>();
   private readonly clientParticipants = new Map<number, number>();
-  private readonly pendingFrameUserIdxs = new Map<number, number[]>();
+  private readonly pendingFrameRequests = new Map<number, PendingFrameRequest[]>();
 
   private aiSocket?: WebSocket;
   private server?: Server;
 
+  private nextFrameRequestId = 0;
   private reconnectTimer?: NodeJS.Timeout;
   private reconnectAttempts = 0;
   private isShuttingDown = false;
@@ -87,6 +93,7 @@ export class CallsService {
       );
 
       this.aiSocket = undefined;
+      this.clearPendingFrameRequests();
 
       this.scheduleAiReconnect();
     });
@@ -241,9 +248,9 @@ export class CallsService {
       return;
     }
 
-    const userIdx = this.shiftPendingFrameUserIdx(callRoomIdx);
+    const pendingFrameRequest = this.shiftPendingFrameRequest(callRoomIdx);
 
-    if (!Number.isInteger(userIdx)) {
+    if (!pendingFrameRequest) {
       this.logger.warn({ parseData }, 'Dropped AI message without matching frame sender');
 
       return;
@@ -258,7 +265,7 @@ export class CallsService {
     this.server.to(this.getCallRoomName(callRoomIdx)).emit('translation', {
       text,
       callRoomIdx,
-      userIdx,
+      userIdx: pendingFrameRequest.userIdx,
     });
   }
 
@@ -287,7 +294,7 @@ export class CallsService {
       return;
     }
 
-    this.pushPendingFrameUserIdx(callRoomIdx, userIdx);
+    const requestId = this.pushPendingFrameRequest(callRoomIdx, userIdx);
 
     this.aiSocket.send(
       JSON.stringify({
@@ -296,7 +303,7 @@ export class CallsService {
       }),
       (error) => {
         if (error) {
-          this.removePendingFrameUserIdx(callRoomIdx, userIdx);
+          this.removePendingFrameRequest(callRoomIdx, requestId);
           this.logger.error({ err: error }, 'AI WebSocket send failed');
         }
       },
@@ -389,53 +396,70 @@ export class CallsService {
     }
   }
 
-  private pushPendingFrameUserIdx(
+  private pushPendingFrameRequest(
     callRoomIdx: number,
     userIdx: number
   ) {
-    const userIdxs = this.pendingFrameUserIdxs.get(callRoomIdx) ?? [];
+    const requestId = this.createFrameRequestId();
+    const requests = this.pendingFrameRequests.get(callRoomIdx) ?? [];
 
-    userIdxs.push(userIdx);
-    this.pendingFrameUserIdxs.set(callRoomIdx, userIdxs);
+    requests.push({
+      requestId,
+      userIdx,
+    });
+
+    this.pendingFrameRequests.set(callRoomIdx, requests);
+
+    return requestId;
   }
 
-  private shiftPendingFrameUserIdx(
+  private shiftPendingFrameRequest(
     callRoomIdx: number
   ) {
-    const userIdxs = this.pendingFrameUserIdxs.get(callRoomIdx);
+    const requests = this.pendingFrameRequests.get(callRoomIdx);
 
-    if (!userIdxs || userIdxs.length === 0) {
+    if (!requests || requests.length === 0) {
       return;
     }
 
-    const userIdx = userIdxs.shift();
+    const request = requests.shift();
 
-    if (userIdxs.length === 0) {
-      this.pendingFrameUserIdxs.delete(callRoomIdx);
+    if (requests.length === 0) {
+      this.pendingFrameRequests.delete(callRoomIdx);
     }
 
-    return userIdx;
+    return request;
   }
 
-  private removePendingFrameUserIdx(
+  private removePendingFrameRequest(
     callRoomIdx: number,
-    userIdx: number
+    requestId: number
   ) {
-    const userIdxs = this.pendingFrameUserIdxs.get(callRoomIdx);
+    const requests = this.pendingFrameRequests.get(callRoomIdx);
 
-    if (!userIdxs) {
+    if (!requests) {
       return;
     }
 
-    const index = userIdxs.indexOf(userIdx);
+    const index = requests.findIndex((request) => request.requestId === requestId);
 
     if (index !== -1) {
-      userIdxs.splice(index, 1);
+      requests.splice(index, 1);
     }
 
-    if (userIdxs.length === 0) {
-      this.pendingFrameUserIdxs.delete(callRoomIdx);
+    if (requests.length === 0) {
+      this.pendingFrameRequests.delete(callRoomIdx);
     }
+  }
+
+  private clearPendingFrameRequests() {
+    this.pendingFrameRequests.clear();
+  }
+
+  private createFrameRequestId() {
+    this.nextFrameRequestId = (this.nextFrameRequestId % Number.MAX_SAFE_INTEGER) + 1;
+
+    return this.nextFrameRequestId;
   }
 
   private toRecord(
