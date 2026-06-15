@@ -9,6 +9,7 @@ import { WsGuard } from 'src/guards/ws.guard';
 import { CallsService } from './calls.service';
 import { CallRoomPayloadDto, SignalingPayloadDto } from './dto/call-signaling.dto';
 import { SendFrameDto } from './dto/send-frame.dto';
+import { SendAudioDto } from './dto/send-audio.dto';
 
 @WebSocketGateway({
   namespace: '/calls'
@@ -31,6 +32,15 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
     @ConnectedSocket() client: Socket
   ) {
     this.callsService.sendFrame(payload, client);
+  }
+
+  @UseGuards(WsGuard)
+  @SubscribeMessage('send_audio')
+  handleSendAudio(
+    @MessageBody() payload: SendAudioDto,
+    @ConnectedSocket() client: Socket
+  ) {
+    this.callsService.sendAudio(payload, client);
   }
 
   @UseGuards(WsGuard)
