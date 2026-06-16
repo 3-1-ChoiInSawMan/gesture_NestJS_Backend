@@ -11,12 +11,15 @@ import { disconnectWithAuthError, emitWsError } from 'src/common/ws-error.util';
 import { AiMessageDto } from './dto/ai-message.dto';
 import { SignalingPayloadDto } from './dto/call-signaling.dto';
 import { SendFrameDto } from './dto/send-frame.dto';
+import { SendAudioDto } from './dto/send-audio.dto';
 
 type SignalingEvent = 'offer' | 'answer' | 'ice_candidate';
+type AiRequestSource = 'frame' | 'audio';
 
-type PendingFrameRequest = {
+type PendingAiRequest = {
   requestId: number;
-  userIdx: number;
+  sequence: number;
+  source: AiRequestSource;
 };
 
 type SignalingUserPayload = {
@@ -40,6 +43,8 @@ export class CallsService {
   private server?: Server;
 
   private nextFrameRequestId = 0;
+  private nextAudioRequestId = 0;
+  private nextAiRequestSequence = 0;
   private reconnectTimer?: NodeJS.Timeout;
   private reconnectAttempts = 0;
   private isShuttingDown = false;
@@ -102,7 +107,7 @@ export class CallsService {
       );
 
       this.aiSocket = undefined;
-      this.clearPendingFrameRequests();
+      this.clearPendingAiRequests();
 
       this.scheduleAiReconnect();
     });
@@ -277,10 +282,10 @@ export class CallsService {
       return;
     }
 
-    const pendingFrameRequest = this.shiftPendingFrameRequest(callRoomIdx);
+    const pendingRequest = this.shiftNextPendingAiRequest(callRoomIdx);
 
-    if (!pendingFrameRequest) {
-      this.logger.warn({ parseData }, 'Dropped AI message without matching frame sender');
+    if (!pendingRequest) {
+      this.logger.warn({ parseData }, 'Dropped AI message without matching request sender');
 
       return;
     }
@@ -291,10 +296,9 @@ export class CallsService {
       return;
     }
     
-    this.server.to(this.getCallRoomName(callRoomIdx)).emit('translation', {
+    this.server.to(this.getCallRoomName(callRoomIdx)).emit(this.getTranslationEvent(pendingRequest.source), {
       text,
       callRoomIdx,
-      userIdx: pendingFrameRequest.userIdx,
     });
   }
 
@@ -323,7 +327,7 @@ export class CallsService {
       return;
     }
 
-    const requestId = this.pushPendingFrameRequest(callRoomIdx, userIdx);
+    const requestId = this.pushPendingFrameRequest(callRoomIdx);
 
     this.aiSocket.send(
       JSON.stringify({
@@ -333,6 +337,47 @@ export class CallsService {
       (error) => {
         if (error) {
           this.removePendingFrameRequest(callRoomIdx, requestId);
+          this.logger.error({ err: error }, 'AI WebSocket send failed');
+        }
+      },
+    );
+  }
+
+  public sendAudio(
+    payload: SendAudioDto,
+    client: Socket
+  ) {
+    const { audio, callRoomIdx } = payload;
+    const userIdx = this.getClientUserIdx(client);
+
+    if (!Number.isInteger(userIdx)) {
+      emitWsError(client, 'AUTH_001');
+
+      return;
+    }
+
+    if (!this.isValidCallRoomIdx(callRoomIdx) || !client.rooms.has(this.getCallRoomName(callRoomIdx))) {
+      emitWsError(client, 'CALL_002');
+
+      return;
+    }
+
+    if (!this.aiSocket || this.aiSocket.readyState !== WebSocket.OPEN) {
+      this.logger.warn('AI WebSocket is not open; audio dropped');
+
+      return;
+    }
+
+    const requestId = this.pushPendingAudioRequest(callRoomIdx);
+
+    this.aiSocket.send(
+      JSON.stringify({
+        audio,
+        callRoomIdx,
+      }),
+      (error) => {
+        if (error) {
+          this.removePendingAudioRequest(callRoomIdx, requestId);
           this.logger.error({ err: error }, 'AI WebSocket send failed');
         }
       },
@@ -514,26 +559,107 @@ export class CallsService {
   }
 
   private pushPendingFrameRequest(
-    callRoomIdx: number,
-    userIdx: number
+    callRoomIdx: number
   ) {
-    const requestId = this.createFrameRequestId();
-    const requests = this.pendingFrameRequests.get(callRoomIdx) ?? [];
+    return this.pushPendingRequest(
+      this.pendingFrameRequests,
+      callRoomIdx,
+      this.createFrameRequestId(),
+      'frame',
+    );
+  }
 
-    requests.push({
-      requestId,
-      userIdx,
-    });
-
-    this.pendingFrameRequests.set(callRoomIdx, requests);
-
-    return requestId;
+  private pushPendingAudioRequest(
+    callRoomIdx: number
+  ) {
+    return this.pushPendingRequest(
+      this.pendingAudioRequests,
+      callRoomIdx,
+      this.createAudioRequestId(),
+      'audio',
+    );
   }
 
   private shiftPendingFrameRequest(
     callRoomIdx: number
   ) {
-    const requests = this.pendingFrameRequests.get(callRoomIdx);
+    return this.shiftPendingRequest(this.pendingFrameRequests, callRoomIdx);
+  }
+
+  private shiftPendingAudioRequest(
+    callRoomIdx: number
+  ) {
+    return this.shiftPendingRequest(this.pendingAudioRequests, callRoomIdx);
+  }
+
+  private shiftNextPendingAiRequest(
+    callRoomIdx: number
+  ) {
+    const pendingFrameRequest = this.peekPendingRequest(this.pendingFrameRequests, callRoomIdx);
+    const pendingAudioRequest = this.peekPendingRequest(this.pendingAudioRequests, callRoomIdx);
+
+    if (!pendingFrameRequest && !pendingAudioRequest) {
+      return;
+    }
+
+    if (
+      !pendingAudioRequest ||
+      (
+        pendingFrameRequest &&
+        pendingFrameRequest.sequence <= pendingAudioRequest.sequence
+      )
+    ) {
+      return this.shiftPendingFrameRequest(callRoomIdx);
+    }
+
+    return this.shiftPendingAudioRequest(callRoomIdx);
+  }
+
+  private removePendingFrameRequest(
+    callRoomIdx: number,
+    requestId: number
+  ) {
+    this.removePendingRequest(this.pendingFrameRequests, callRoomIdx, requestId);
+  }
+
+  private removePendingAudioRequest(
+    callRoomIdx: number,
+    requestId: number
+  ) {
+    this.removePendingRequest(this.pendingAudioRequests, callRoomIdx, requestId);
+  }
+
+  private pushPendingRequest(
+    requestsByCallRoomIdx: Map<number, PendingAiRequest[]>,
+    callRoomIdx: number,
+    requestId: number,
+    source: AiRequestSource,
+  ) {
+    const requests = requestsByCallRoomIdx.get(callRoomIdx) ?? [];
+
+    requests.push({
+      requestId,
+      sequence: this.createAiRequestSequence(),
+      source,
+    });
+
+    requestsByCallRoomIdx.set(callRoomIdx, requests);
+
+    return requestId;
+  }
+
+  private peekPendingRequest(
+    requestsByCallRoomIdx: Map<number, PendingAiRequest[]>,
+    callRoomIdx: number,
+  ) {
+    return requestsByCallRoomIdx.get(callRoomIdx)?.[0];
+  }
+
+  private shiftPendingRequest(
+    requestsByCallRoomIdx: Map<number, PendingAiRequest[]>,
+    callRoomIdx: number,
+  ) {
+    const requests = requestsByCallRoomIdx.get(callRoomIdx);
 
     if (!requests || requests.length === 0) {
       return;
@@ -542,17 +668,18 @@ export class CallsService {
     const request = requests.shift();
 
     if (requests.length === 0) {
-      this.pendingFrameRequests.delete(callRoomIdx);
+      requestsByCallRoomIdx.delete(callRoomIdx);
     }
 
     return request;
   }
 
-  private removePendingFrameRequest(
+  private removePendingRequest(
+    requestsByCallRoomIdx: Map<number, PendingAiRequest[]>,
     callRoomIdx: number,
     requestId: number
   ) {
-    const requests = this.pendingFrameRequests.get(callRoomIdx);
+    const requests = requestsByCallRoomIdx.get(callRoomIdx);
 
     if (!requests) {
       return;
@@ -565,18 +692,37 @@ export class CallsService {
     }
 
     if (requests.length === 0) {
-      this.pendingFrameRequests.delete(callRoomIdx);
+      requestsByCallRoomIdx.delete(callRoomIdx);
     }
   }
 
-  private clearPendingFrameRequests() {
+  private clearPendingAiRequests() {
     this.pendingFrameRequests.clear();
+    this.pendingAudioRequests.clear();
   }
 
   private createFrameRequestId() {
     this.nextFrameRequestId = (this.nextFrameRequestId % Number.MAX_SAFE_INTEGER) + 1;
 
     return this.nextFrameRequestId;
+  }
+
+  private createAudioRequestId() {
+    this.nextAudioRequestId = (this.nextAudioRequestId % Number.MAX_SAFE_INTEGER) + 1;
+
+    return this.nextAudioRequestId;
+  }
+
+  private createAiRequestSequence() {
+    this.nextAiRequestSequence = (this.nextAiRequestSequence % Number.MAX_SAFE_INTEGER) + 1;
+
+    return this.nextAiRequestSequence;
+  }
+
+  private getTranslationEvent(
+    source: AiRequestSource
+  ) {
+    return `${source}_translation`;
   }
 
   private toRecord(
