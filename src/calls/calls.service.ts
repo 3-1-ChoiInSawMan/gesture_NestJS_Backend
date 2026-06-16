@@ -37,7 +37,8 @@ export class CallsService {
   private readonly clientParticipants = new Map<number, number>();
   private readonly activeSocketIdsByUser = new Map<number, string>();
   private readonly userNicknames = new Map<number, string>();
-  private readonly pendingFrameRequests = new Map<number, PendingFrameRequest[]>();
+  private readonly pendingFrameRequests = new Map<number, PendingAiRequest[]>();
+  private readonly pendingAudioRequests = new Map<number, PendingAiRequest[]>();
 
   private aiSocket?: WebSocket;
   private server?: Server;
@@ -195,8 +196,8 @@ export class CallsService {
       return;
     }
 
-    await this.syncParticipantNicknames(callRoomIdx, userIdx);
     this.leavePreviousActiveSocket(client, userIdx);
+    await this.syncParticipantNicknames(callRoomIdx, userIdx);
 
     const existingParticipants = this.getRoomSignalingUsers(callRoomIdx);
 
@@ -232,6 +233,7 @@ export class CallsService {
     client.to(roomName).emit('user_left', this.getSignalingUserPayload(client, resolvedCallRoomIdx));
     client.leave(roomName);
     this.deleteActiveSocketIfMatches(client);
+    this.cleanupInactiveUserNicknames();
 
     if (client.data.callRoomIdx === resolvedCallRoomIdx) {
       client.data.callRoomIdx = undefined;
@@ -515,6 +517,10 @@ export class CallsService {
       const { data } = await this.getParticipantsByRoomIdx(callRoomIdx, userIdx);
 
       for (const participant of data.participants) {
+        if (participant.userIdx !== userIdx && !this.activeSocketIdsByUser.has(participant.userIdx)) {
+          continue;
+        }
+
         this.userNicknames.set(participant.userIdx, participant.nickname);
       }
     } catch (error) {
@@ -536,6 +542,7 @@ export class CallsService {
 
     if (!previousClient) {
       this.activeSocketIdsByUser.delete(userIdx);
+      this.userNicknames.delete(userIdx);
 
       return;
     }
@@ -555,6 +562,18 @@ export class CallsService {
 
     if (this.activeSocketIdsByUser.get(userIdx) === client.id) {
       this.activeSocketIdsByUser.delete(userIdx);
+      this.userNicknames.delete(userIdx);
+    }
+  }
+
+  private cleanupInactiveUserNicknames() {
+    for (const userIdx of this.userNicknames.keys()) {
+      const socketId = this.activeSocketIdsByUser.get(userIdx);
+
+      if (!socketId || !this.clients.has(socketId)) {
+        this.activeSocketIdsByUser.delete(userIdx);
+        this.userNicknames.delete(userIdx);
+      }
     }
   }
 
