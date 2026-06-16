@@ -35,7 +35,7 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
   @UseGuards(WsGuard)
   @SubscribeMessage('join_call')
-  handleJoinCall(
+  async handleJoinCall(
     @MessageBody() payload: CallRoomPayloadDto,
     @ConnectedSocket() client: Socket
   ) {
@@ -47,7 +47,7 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
       return;
     }
 
-    this.callsService.joinSignalingRoom(client, callRoomIdx);
+    await this.callsService.joinSignalingRoom(client, callRoomIdx);
   }
 
   @UseGuards(WsGuard)
