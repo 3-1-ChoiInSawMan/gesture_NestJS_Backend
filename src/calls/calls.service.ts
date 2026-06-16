@@ -22,12 +22,21 @@ type PendingAiRequest = {
   source: AiRequestSource;
 };
 
+type SignalingUserPayload = {
+  callRoomIdx: number;
+  socketId: string;
+  userIdx?: number;
+  nickname?: string;
+};
+
 @Injectable()
 export class CallsService {
   private readonly AI_WS_URL: string;
 
   private readonly clients = new Map<string, Socket>();
   private readonly clientParticipants = new Map<number, number>();
+  private readonly activeSocketIdsByUser = new Map<number, string>();
+  private readonly userNicknames = new Map<number, string>();
   private readonly pendingFrameRequests = new Map<number, PendingAiRequest[]>();
   private readonly pendingAudioRequests = new Map<number, PendingAiRequest[]>();
 
@@ -135,13 +144,13 @@ export class CallsService {
     }, delay);
   }
 
-  public connectSocket(
+  public async connectSocket(
     client: Socket,
     callRoomIdx: number
   ) {
     this.clients.set(client.id, client);
 
-    this.joinSignalingRoom(client, callRoomIdx);
+    await this.joinSignalingRoom(client, callRoomIdx);
   }
 
   public disconnectSocket(
@@ -157,7 +166,7 @@ export class CallsService {
     return Number.isInteger(callRoomIdx) && Number(callRoomIdx) > 0;
   }
 
-  public joinSignalingRoom(
+  public async joinSignalingRoom(
     client: Socket,
     callRoomIdx: number
   ) {
@@ -179,9 +188,28 @@ export class CallsService {
       return;
     }
 
+    const userIdx = this.getClientUserIdx(client);
+
+    if (!Number.isInteger(userIdx)) {
+      emitWsError(client, 'AUTH_001');
+
+      return;
+    }
+
+    this.leavePreviousActiveSocket(client, userIdx);
+    await this.syncParticipantNicknames(callRoomIdx, userIdx);
+
+    const existingParticipants = this.getRoomSignalingUsers(callRoomIdx);
+
     client.data.callRoomIdx = callRoomIdx;
     this.clients.set(client.id, client);
     client.join(roomName);
+    this.activeSocketIdsByUser.set(userIdx, client.id);
+
+    client.emit('existing_participants', {
+      callRoomIdx,
+      participants: existingParticipants,
+    });
 
     client.to(roomName).emit('user_joined', this.getSignalingUserPayload(client, callRoomIdx));
   }
@@ -204,6 +232,8 @@ export class CallsService {
 
     client.to(roomName).emit('user_left', this.getSignalingUserPayload(client, resolvedCallRoomIdx));
     client.leave(roomName);
+    this.deleteActiveSocketIfMatches(client);
+    this.cleanupInactiveUserNicknames();
 
     if (client.data.callRoomIdx === resolvedCallRoomIdx) {
       client.data.callRoomIdx = undefined;
@@ -424,11 +454,14 @@ export class CallsService {
   private getSignalingUserPayload(
     client: Socket,
     callRoomIdx: number
-  ) {
+  ): SignalingUserPayload {
+    const userIdx = this.getClientUserIdx(client);
+
     return {
       callRoomIdx,
       socketId: client.id,
-      userIdx: client.data.user?.idx,
+      userIdx,
+      nickname: this.getClientNickname(client, userIdx),
     };
   }
 
@@ -439,6 +472,108 @@ export class CallsService {
 
     if (Number.isInteger(userIdx)) {
       return userIdx;
+    }
+  }
+
+  private getClientNickname(
+    client: Socket,
+    userIdx?: number,
+  ) {
+    if (typeof userIdx === 'number' && Number.isInteger(userIdx)) {
+      return this.userNicknames.get(userIdx) ?? client.data.user?.nickname;
+    }
+
+    return client.data.user?.nickname;
+  }
+
+  private getRoomSignalingUsers(
+    callRoomIdx: number
+  ) {
+    const roomName = this.getCallRoomName(callRoomIdx);
+    const participants: SignalingUserPayload[] = [];
+
+    for (const client of this.clients.values()) {
+      const userIdx = this.getClientUserIdx(client);
+
+      if (
+        !client.rooms.has(roomName)
+        || !Number.isInteger(userIdx)
+        || this.activeSocketIdsByUser.get(userIdx) !== client.id
+      ) {
+        continue;
+      }
+
+      participants.push(this.getSignalingUserPayload(client, callRoomIdx));
+    }
+
+    return participants;
+  }
+
+  private async syncParticipantNicknames(
+    callRoomIdx: number,
+    userIdx: number
+  ) {
+    try {
+      const { data } = await this.getParticipantsByRoomIdx(callRoomIdx, userIdx);
+
+      for (const participant of data.participants) {
+        if (participant.userIdx !== userIdx && !this.activeSocketIdsByUser.has(participant.userIdx)) {
+          continue;
+        }
+
+        this.userNicknames.set(participant.userIdx, participant.nickname);
+      }
+    } catch (error) {
+      this.logger.warn({ err: error, callRoomIdx, userIdx }, 'Failed to sync call participant nicknames');
+    }
+  }
+
+  private leavePreviousActiveSocket(
+    client: Socket,
+    userIdx: number
+  ) {
+    const previousSocketId = this.activeSocketIdsByUser.get(userIdx);
+
+    if (!previousSocketId || previousSocketId === client.id) {
+      return;
+    }
+
+    const previousClient = this.clients.get(previousSocketId);
+
+    if (!previousClient) {
+      this.activeSocketIdsByUser.delete(userIdx);
+      this.userNicknames.delete(userIdx);
+
+      return;
+    }
+
+    this.leaveSignalingRoom(previousClient);
+    previousClient.disconnect(true);
+  }
+
+  private deleteActiveSocketIfMatches(
+    client: Socket
+  ) {
+    const userIdx = this.getClientUserIdx(client);
+
+    if (!Number.isInteger(userIdx)) {
+      return;
+    }
+
+    if (this.activeSocketIdsByUser.get(userIdx) === client.id) {
+      this.activeSocketIdsByUser.delete(userIdx);
+      this.userNicknames.delete(userIdx);
+    }
+  }
+
+  private cleanupInactiveUserNicknames() {
+    for (const userIdx of this.userNicknames.keys()) {
+      const socketId = this.activeSocketIdsByUser.get(userIdx);
+
+      if (!socketId || !this.clients.has(socketId)) {
+        this.activeSocketIdsByUser.delete(userIdx);
+        this.userNicknames.delete(userIdx);
+      }
     }
   }
 
