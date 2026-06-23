@@ -13,6 +13,7 @@ import { MediasModule } from './medias/medias.module';
 import { CallsModule } from './calls/calls.module';
 import { CoreHttpModule } from './core-http/core-http.module';
 import { QuickSlotModule } from './quick-slot/quick-slot.module';
+import { MeetingsModule } from './meetings/meetings.module';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -44,6 +45,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
     MediasModule,
     CallsModule,
     QuickSlotModule,
+    MeetingsModule,
   ],
   controllers: [AppControllerV1],
   providers: [AppService],

@@ -11,6 +11,8 @@ import { RegisterDto } from './dto/request/register.dto';
 import { RegisterResponse } from './dto/core/response/RegisterResponse.interface';
 import { EmailSendDto } from './dto/request/email-send.dto';
 import { EmailSendVerification } from './dto/core/response/EmailSendVerificationResponse.interface';
+import { RefreshTokenDto } from './dto/request/refresh-token.dto';
+import { RefreshTokenResponse } from './dto/core/response/RefreshTokenResponse.interface';
 
 @Injectable()
 export class AuthService {
@@ -40,6 +42,16 @@ export class AuthService {
     return await this.coreHttpService.post<RegisterResponse>('/auth/register', body);
   }
 
+  public async refreshToken(body: RefreshTokenDto) {
+    return await this.coreHttpService.post<RefreshTokenResponse>('/auth/refresh', this.toRefreshTokenRequest(body));
+  }
+
+  public async deleteRefreshToken(body: RefreshTokenDto) {
+    return await this.coreHttpService.delete<undefined>('/auth/refresh', {
+      data: this.toRefreshTokenRequest(body),
+    });
+  }
+
   public async verifyToken(
     token: string
   ): Promise<JwtPayload> {
@@ -47,5 +59,13 @@ export class AuthService {
       publicKey: this.publicKey,
       algorithms: ['RS256'],
     });
+  }
+
+  private toRefreshTokenRequest(
+    body: RefreshTokenDto,
+  ) {
+    return {
+      refresh_token: body.refresh_token ?? body.refreshToken,
+    };
   }
 }

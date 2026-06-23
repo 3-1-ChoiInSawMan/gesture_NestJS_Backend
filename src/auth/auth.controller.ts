@@ -1,9 +1,10 @@
-import { Body, Controller, NotImplementedException, Post } from '@nestjs/common';
+import { Body, Controller, Delete, NotImplementedException, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/request/login.dto';
 import { EmailVerificationDto } from './dto/request/email-verification.dto';
 import { RegisterDto } from './dto/request/register.dto';
 import { EmailSendDto } from './dto/request/email-send.dto';
+import { RefreshTokenDto } from './dto/request/refresh-token.dto';
 
 @Controller({ path: '/auth', version: '1' })
 export class AuthControllerV1 {
@@ -67,8 +68,27 @@ export class AuthControllerV1 {
   }
 
   @Post('refresh')
-  handleRefresh() {
-    throw new NotImplementedException();
+  async handleRefresh(
+    @Body() body: RefreshTokenDto,
+  ) {
+    const { data, message } = await this.authService.refreshToken(body);
+
+    return {
+      data,
+      message,
+    };
+  }
+
+  @Delete('refresh-token')
+  async handleDeleteRefreshToken(
+    @Body() body: RefreshTokenDto,
+  ) {
+    const { data, message } = await this.authService.deleteRefreshToken(body);
+
+    return {
+      data,
+      message,
+    };
   }
 
   /**
