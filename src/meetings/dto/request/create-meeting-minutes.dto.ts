@@ -7,8 +7,7 @@ export class CreateMeetingMinutesDto {
 
   @ValidateIf((body) => !body.content)
   @IsNotEmpty()
-  @IsString()
-  transcript?: string;
+  transcript?: string | unknown[];
 
   @ValidateIf((body) => !body.transcript)
   @IsNotEmpty()
