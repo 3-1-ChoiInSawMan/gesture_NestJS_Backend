@@ -1,15 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { CoreHttpService } from 'src/core-http/core-http.service';
+import { ConfigService } from '@nestjs/config';
+import { RedisStreamService } from 'src/redis/redis-stream.service';
 import { convertKeysToSnakeCase } from 'src/utils/convert-snake';
 import { CreateMeetingMinutesDto } from './dto/request/create-meeting-minutes.dto';
 import { UpdateMeetingMinutesDto } from './dto/request/update-meeting-minutes.dto';
 import { MeetingMinutesResponse } from './dto/core/response/MeetingMinutesResponse.interface';
 import { MeetingMinutesSummaryResponse } from './dto/core/response/MeetingMinutesSummaryResponse.interface';
+import { PublishMeetingMinutesResponse } from './dto/response/publish-meeting-minutes-response.interface';
 
 @Injectable()
 export class MeetingsService {
   constructor(
     private readonly coreHttpService: CoreHttpService,
+    private readonly redisStreamService: RedisStreamService,
+    private readonly configService: ConfigService,
   ) {};
 
   async startMeeting(
@@ -39,13 +44,17 @@ export class MeetingsService {
     body: CreateMeetingMinutesDto,
     userIdx: number,
   ) {
-    const request = convertKeysToSnakeCase(this.normalizeCreateBody(body));
+    const streamKey = this.getMeetingStreamKey();
+    const streamId = await this.redisStreamService.xadd(streamKey, this.normalizeCreateBody(callIdx, body, userIdx));
 
-    return this.coreHttpService.post<MeetingMinutesResponse>(`/meetings/calls/${callIdx}`, request, {
-      headers: {
-        'X-User-Id': userIdx,
-      },
-    });
+    return {
+      data: {
+        streamKey,
+        streamId,
+        callIdx,
+      } satisfies PublishMeetingMinutesResponse,
+      message: '회의록 저장 요청이 발행되었습니다.',
+    };
   }
 
   async getMeetingMinutesByRoomIdx(
@@ -85,13 +94,17 @@ export class MeetingsService {
   }
 
   private normalizeCreateBody(
+    callIdx: number,
     body: CreateMeetingMinutesDto,
+    userIdx: number,
   ) {
     return {
+      call_idx: callIdx,
+      user_idx: userIdx,
       title: body.title,
-      content: body.content ?? body.transcript,
+      transcript: this.normalizeTranscript(body),
       participants: body.participants,
-      aiSummary: body.aiSummary ?? body.ai_summary,
+      ai_summary: body.aiSummary ?? body.ai_summary ?? '',
       conclusion: body.conclusion,
     };
   }
@@ -104,5 +117,19 @@ export class MeetingsService {
       content: body.content,
       conclusion: body.conclusion,
     };
+  }
+
+  private normalizeTranscript(
+    body: CreateMeetingMinutesDto,
+  ) {
+    if (Array.isArray(body.transcript)) {
+      return body.transcript;
+    }
+
+    return [body.content ?? body.transcript ?? ''];
+  }
+
+  private getMeetingStreamKey() {
+    return this.configService.get<string>('REDIS_MEETING_STREAM_KEY') ?? 'meeting-stream';
   }
 }
