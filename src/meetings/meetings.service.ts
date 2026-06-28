@@ -3,6 +3,7 @@ import { CoreHttpService } from 'src/core-http/core-http.service';
 import { ConfigService } from '@nestjs/config';
 import { RedisStreamService } from 'src/redis/redis-stream.service';
 import { convertKeysToSnakeCase } from 'src/utils/convert-snake';
+import type { GetCallParticipantsResponse } from 'src/calls/dto/core/response/GetCallParticipantsResponse.interface';
 import { CreateMeetingMinutesDto } from './dto/request/create-meeting-minutes.dto';
 import { UpdateMeetingMinutesDto } from './dto/request/update-meeting-minutes.dto';
 import { MeetingMinutesResponse } from './dto/core/response/MeetingMinutesResponse.interface';
@@ -18,9 +19,11 @@ export class MeetingsService {
   ) {};
 
   async startMeeting(
-    callIdx: number,
+    roomIdx: number,
     userIdx: number,
   ) {
+    const callIdx = await this.resolveCallIdxByRoomIdx(roomIdx, userIdx);
+
     return this.coreHttpService.post<MeetingMinutesResponse>(`/meetings/start/calls/${callIdx}`, undefined, {
       headers: {
         'X-User-Id': userIdx,
@@ -40,10 +43,11 @@ export class MeetingsService {
   }
 
   async createMeetingMinutes(
-    callIdx: number,
+    roomIdx: number,
     body: CreateMeetingMinutesDto,
     userIdx: number,
   ) {
+    const callIdx = await this.resolveCallIdxByRoomIdx(roomIdx, userIdx);
     const streamKey = this.getMeetingStreamKey();
     const streamId = await this.redisStreamService.xadd(streamKey, this.normalizeCreateBody(callIdx, body, userIdx));
 
@@ -107,6 +111,19 @@ export class MeetingsService {
       ai_summary: body.aiSummary ?? body.ai_summary ?? '',
       conclusion: body.conclusion,
     };
+  }
+
+  private async resolveCallIdxByRoomIdx(
+    roomIdx: number,
+    userIdx: number,
+  ) {
+    const { data } = await this.coreHttpService.get<GetCallParticipantsResponse>(`/calls/${roomIdx}/participants`, {
+      headers: {
+        'X-User-Id': userIdx,
+      },
+    });
+
+    return data.callIdx;
   }
 
   private normalizeUpdateBody(

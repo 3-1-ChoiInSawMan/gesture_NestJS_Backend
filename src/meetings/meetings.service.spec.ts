@@ -2,6 +2,27 @@ import { MeetingsService } from './meetings.service';
 
 describe('MeetingsService Redis Stream publishing', () => {
   const createService = () => {
+    const coreHttpService = {
+      get: jest.fn().mockResolvedValue({
+        data: {
+          callIdx: 38,
+          roomIdx: 5,
+          participants: [],
+          currentParticipant: 1,
+        },
+        message: 'ok',
+      }),
+      post: jest.fn().mockResolvedValue({
+        data: {
+          minutesIdx: 1,
+          callIdx: 38,
+          roomIdx: 5,
+          status: 'IN_PROGRESS',
+        },
+        message: '회의록이 시작되었습니다.',
+      }),
+    };
+
     const redisStreamService = {
       xadd: jest.fn().mockResolvedValue('1-0'),
     };
@@ -17,22 +38,23 @@ describe('MeetingsService Redis Stream publishing', () => {
     };
 
     const service = new MeetingsService(
-      {} as never,
+      coreHttpService as never,
       redisStreamService as never,
       configService as never,
     );
 
     return {
       service,
+      coreHttpService,
       redisStreamService,
     };
   };
 
-  it('publishes meeting minutes data to Redis Stream', async () => {
-    const { service, redisStreamService } = createService();
+  it('resolves callIdx by roomIdx before publishing meeting minutes data', async () => {
+    const { service, coreHttpService, redisStreamService } = createService();
 
     const response = await service.createMeetingMinutes(
-      38,
+      5,
       {
         title: '프로젝트 회의',
         transcript: ['안녕하세요', '회의를 시작합니다'],
@@ -43,6 +65,11 @@ describe('MeetingsService Redis Stream publishing', () => {
       7,
     );
 
+    expect(coreHttpService.get).toHaveBeenCalledWith('/calls/5/participants', {
+      headers: {
+        'X-User-Id': 7,
+      },
+    });
     expect(redisStreamService.xadd).toHaveBeenCalledWith('meeting-stream', {
       call_idx: 38,
       user_idx: 7,
@@ -59,6 +86,32 @@ describe('MeetingsService Redis Stream publishing', () => {
         callIdx: 38,
       },
       message: '회의록 저장 요청이 발행되었습니다.',
+    });
+  });
+
+  it('resolves callIdx by roomIdx before starting meeting minutes', async () => {
+    const { service, coreHttpService } = createService();
+
+    const response = await service.startMeeting(5, 7);
+
+    expect(coreHttpService.get).toHaveBeenCalledWith('/calls/5/participants', {
+      headers: {
+        'X-User-Id': 7,
+      },
+    });
+    expect(coreHttpService.post).toHaveBeenCalledWith('/meetings/start/calls/38', undefined, {
+      headers: {
+        'X-User-Id': 7,
+      },
+    });
+    expect(response).toEqual({
+      data: {
+        minutesIdx: 1,
+        callIdx: 38,
+        roomIdx: 5,
+        status: 'IN_PROGRESS',
+      },
+      message: '회의록이 시작되었습니다.',
     });
   });
 });

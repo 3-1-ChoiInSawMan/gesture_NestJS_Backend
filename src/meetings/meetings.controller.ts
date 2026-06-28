@@ -14,12 +14,12 @@ export class MeetingsController {
 
   // 회의록 시작
   @UseGuards(JwtGuard)
-  @Post('/start/calls/:callIdx')
+  @Post('/start/rooms/:roomIdx')
   async handleStartMeeting(
-    @Param('callIdx', new ParseIntPipe()) callIdx: number,
+    @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
     @GetUser() user: JwtPayload,
   ) {
-    const { data, message } = await this.meetingsService.startMeeting(callIdx, user.idx);
+    const { data, message } = await this.meetingsService.startMeeting(roomIdx, user.idx);
 
     return {
       data,
@@ -44,13 +44,13 @@ export class MeetingsController {
 
   // 회의록 생성
   @UseGuards(JwtGuard)
-  @Post('/calls/:callIdx')
+  @Post('/rooms/:roomIdx')
   async handleCreateMeetingMinutes(
-    @Param('callIdx', new ParseIntPipe()) callIdx: number,
+    @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
     @Body() body: CreateMeetingMinutesDto,
     @GetUser() user: JwtPayload,
   ) {
-    const { data, message } = await this.meetingsService.createMeetingMinutes(callIdx, body, user.idx);
+    const { data, message } = await this.meetingsService.createMeetingMinutes(roomIdx, body, user.idx);
 
     return {
       data,

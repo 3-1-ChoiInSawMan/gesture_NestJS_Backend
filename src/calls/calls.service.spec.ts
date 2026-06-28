@@ -26,9 +26,9 @@ jest.mock('ws', () => {
 });
 
 describe('CallsService audio relay', () => {
-  const createService = (coreHttpService = {} as never) => {
+  const createService = () => {
     const service = new CallsService(
-      coreHttpService,
+      {} as never,
       {
         getOrThrow: jest.fn().mockReturnValue('ws://ai.example'),
       } as never,
@@ -114,58 +114,6 @@ describe('CallsService audio relay', () => {
     expect(roomEmit).toHaveBeenCalledWith('audio_translation', {
       callRoomIdx: 7,
       text: 'hello audio',
-    });
-  });
-
-  it('includes callIdx in the existing participants response when joining signaling room', async () => {
-    const coreHttpService = {
-      get: jest.fn().mockResolvedValue({
-        data: {
-          callIdx: 38,
-          roomIdx: 7,
-          participants: [
-            {
-              userIdx: 11,
-              nickname: '현우',
-              joinedAt: new Date(),
-              isHost: true,
-              host: true,
-            },
-          ],
-          currentParticipant: 1,
-        },
-        message: 'ok',
-      }),
-    };
-    const service = createService(coreHttpService as never);
-    const roomEmit = jest.fn();
-    const client = {
-      id: 'socket-1',
-      data: {
-        user: {
-          idx: 11,
-          nickname: '현우',
-        },
-      },
-      emit: jest.fn(),
-      join: jest.fn((roomName: string) => client.rooms.add(roomName)),
-      rooms: new Set(['socket-1']),
-      to: jest.fn().mockReturnValue({
-        emit: roomEmit,
-      }),
-    };
-
-    await service.joinSignalingRoom(client as never, 7);
-
-    expect(coreHttpService.get).toHaveBeenCalledWith('/calls/7/participants', {
-      headers: {
-        'X-User-Id': 11,
-      },
-    });
-    expect(client.emit).toHaveBeenCalledWith('existing_participants', {
-      callRoomIdx: 7,
-      callIdx: 38,
-      participants: [],
     });
   });
 });

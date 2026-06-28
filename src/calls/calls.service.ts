@@ -197,7 +197,7 @@ export class CallsService {
     }
 
     this.leavePreviousActiveSocket(client, userIdx);
-    const call = await this.syncParticipantNicknames(callRoomIdx, userIdx);
+    await this.syncParticipantNicknames(callRoomIdx, userIdx);
 
     const existingParticipants = this.getRoomSignalingUsers(callRoomIdx);
 
@@ -208,7 +208,6 @@ export class CallsService {
 
     client.emit('existing_participants', {
       callRoomIdx,
-      callIdx: call?.callIdx,
       participants: existingParticipants,
     });
 
@@ -524,8 +523,6 @@ export class CallsService {
 
         this.userNicknames.set(participant.userIdx, participant.nickname);
       }
-
-      return data;
     } catch (error) {
       this.logger.warn({ err: error, callRoomIdx, userIdx }, 'Failed to sync call participant nicknames');
     }
