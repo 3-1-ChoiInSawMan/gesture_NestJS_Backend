@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { RedisStreamService } from 'src/redis/redis-stream.service';
 import { convertKeysToSnakeCase } from 'src/utils/convert-snake';
 import type { GetCallParticipantsResponse } from 'src/calls/dto/core/response/GetCallParticipantsResponse.interface';
+import type { JoinCallResponse } from 'src/calls/dto/core/response/JoinCallResponse.interface';
 import { CreateMeetingMinutesDto } from './dto/request/create-meeting-minutes.dto';
 import { UpdateMeetingMinutesDto } from './dto/request/update-meeting-minutes.dto';
 import { MeetingMinutesResponse } from './dto/core/response/MeetingMinutesResponse.interface';
@@ -117,13 +118,36 @@ export class MeetingsService {
     roomIdx: number,
     userIdx: number,
   ) {
-    const { data } = await this.coreHttpService.get<GetCallParticipantsResponse>(`/calls/${roomIdx}/participants`, {
+    try {
+      const { data } = await this.coreHttpService.get<GetCallParticipantsResponse>(`/calls/${roomIdx}/participants`, {
+        headers: {
+          'X-User-Id': userIdx,
+        },
+      });
+
+      return data.callIdx;
+    } catch (error) {
+      if (!this.shouldJoinCallToResolveCallIdx(error)) {
+        throw error;
+      }
+    }
+
+    const { data } = await this.coreHttpService.post<JoinCallResponse>(`/calls/${roomIdx}/join`, undefined, {
       headers: {
         'X-User-Id': userIdx,
       },
     });
 
     return data.callIdx;
+  }
+
+  private shouldJoinCallToResolveCallIdx(
+    error: unknown,
+  ) {
+    const response = (error as { response?: { status?: number; data?: { statusCode?: string; code?: string } } }).response;
+    const code = response?.data?.statusCode ?? response?.data?.code;
+
+    return response?.status === 404 && ['ROOM_002', 'CALL_001', 'CALL_002'].includes(code ?? '');
   }
 
   private normalizeUpdateBody(

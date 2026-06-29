@@ -3,23 +3,38 @@ import { MeetingsService } from './meetings.service';
 describe('MeetingsService Redis Stream publishing', () => {
   const createService = () => {
     const coreHttpService = {
-      get: jest.fn().mockResolvedValue({
-        data: {
-          callIdx: 38,
-          roomIdx: 5,
-          participants: [],
-          currentParticipant: 1,
+      get: jest.fn().mockRejectedValue({
+        response: {
+          status: 404,
+          data: {
+            statusCode: 'ROOM_002',
+          },
         },
-        message: 'ok',
       }),
-      post: jest.fn().mockResolvedValue({
-        data: {
-          minutesIdx: 1,
-          callIdx: 38,
-          roomIdx: 5,
-          status: 'IN_PROGRESS',
-        },
-        message: '회의록이 시작되었습니다.',
+      post: jest.fn().mockImplementation((uri: string) => {
+        if (uri === '/calls/5/join') {
+          return Promise.resolve({
+            data: {
+              callIdx: 38,
+              roomIdx: 5,
+              userIdx: 7,
+              joinedAt: new Date('2026-05-11T19:51:27.533Z'),
+              currentParticipant: 1,
+              maxParticipant: 10,
+            },
+            message: '통화에 참여했습니다.',
+          });
+        }
+
+        return Promise.resolve({
+          data: {
+            minutesIdx: 1,
+            callIdx: 38,
+            roomIdx: 5,
+            status: 'IN_PROGRESS',
+          },
+          message: '회의록이 시작되었습니다.',
+        });
       }),
     };
 
@@ -50,7 +65,7 @@ describe('MeetingsService Redis Stream publishing', () => {
     };
   };
 
-  it('resolves callIdx by roomIdx before publishing meeting minutes data', async () => {
+  it('joins call to resolve callIdx by roomIdx before publishing meeting minutes data when participants lookup fails', async () => {
     const { service, coreHttpService, redisStreamService } = createService();
 
     const response = await service.createMeetingMinutes(
@@ -66,6 +81,11 @@ describe('MeetingsService Redis Stream publishing', () => {
     );
 
     expect(coreHttpService.get).toHaveBeenCalledWith('/calls/5/participants', {
+      headers: {
+        'X-User-Id': 7,
+      },
+    });
+    expect(coreHttpService.post).toHaveBeenCalledWith('/calls/5/join', undefined, {
       headers: {
         'X-User-Id': 7,
       },
@@ -89,12 +109,17 @@ describe('MeetingsService Redis Stream publishing', () => {
     });
   });
 
-  it('resolves callIdx by roomIdx before starting meeting minutes', async () => {
+  it('joins call to resolve callIdx by roomIdx before starting meeting minutes when participants lookup fails', async () => {
     const { service, coreHttpService } = createService();
 
     const response = await service.startMeeting(5, 7);
 
     expect(coreHttpService.get).toHaveBeenCalledWith('/calls/5/participants', {
+      headers: {
+        'X-User-Id': 7,
+      },
+    });
+    expect(coreHttpService.post).toHaveBeenCalledWith('/calls/5/join', undefined, {
       headers: {
         'X-User-Id': 7,
       },
