@@ -7,6 +7,8 @@ services:
     env_file: .env
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
+    networks:
+      - gesture-net
 
   dozzle:
     image: amir20/dozzle:latest
@@ -16,3 +18,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "8081:8080"
+
+networks:
+  gesture-net:
+    external: true
