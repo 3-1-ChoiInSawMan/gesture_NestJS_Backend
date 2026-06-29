@@ -49,6 +49,7 @@ jobs:
         -e "SECURITY_CORS_ORIGIN=${{ vars.SECURITY_CORS_ORIGIN }}" \
         -e "SPRING_SERVER_URL=${{ vars.SPRING_SERVER_URL }}" \
         -e "AI_WS_URL=${{ vars.AI_WS_URL }}" \
+        -e "REDIS_URL=${{ vars.REDIS_URL }}" \
         -e "SERVER_PORT=${DEPLOY_PORT}" \
         --restart unless-stopped \
         -d -p "${DEPLOY_PORT}:${DEPLOY_PORT}" \
