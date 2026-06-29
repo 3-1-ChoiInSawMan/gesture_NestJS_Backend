@@ -14,6 +14,7 @@ import { CallsModule } from './calls/calls.module';
 import { CoreHttpModule } from './core-http/core-http.module';
 import { QuickSlotModule } from './quick-slot/quick-slot.module';
 import { MeetingsModule } from './meetings/meetings.module';
+import { ChatRoomsModule } from './chat-rooms/chat-rooms.module';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -46,6 +47,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
     CallsModule,
     QuickSlotModule,
     MeetingsModule,
+    ChatRoomsModule,
   ],
   controllers: [AppControllerV1],
   providers: [AppService],
