@@ -36,7 +36,7 @@ export class MeetingsService {
     minutesIdx: number,
     userIdx: number,
   ) {
-    return this.coreHttpService.get<MeetingMinutesResponse>(`/meetings/${minutesIdx}/end`, {
+    return this.coreHttpService.post<MeetingMinutesResponse>(`/meetings/${minutesIdx}/end`, undefined, {
       headers: {
         'X-User-Id': userIdx,
       },

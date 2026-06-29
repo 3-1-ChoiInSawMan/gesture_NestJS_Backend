@@ -29,7 +29,7 @@ export class MeetingsController {
 
   // 회의록 종료 및 요약
   @UseGuards(JwtGuard)
-  @Get('/:minutesIdx/end')
+  @Post('/:minutesIdx/end')
   async handleEndMeeting(
     @Param('minutesIdx', new ParseIntPipe()) minutesIdx: number,
     @GetUser() user: JwtPayload,

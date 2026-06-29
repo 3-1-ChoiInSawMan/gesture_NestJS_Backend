@@ -139,4 +139,25 @@ describe('MeetingsService Redis Stream publishing', () => {
       message: '회의록이 시작되었습니다.',
     });
   });
+
+  it('ends meeting minutes with POST to match Core API', async () => {
+    const { service, coreHttpService } = createService();
+
+    const response = await service.endMeeting(1, 7);
+
+    expect(coreHttpService.post).toHaveBeenCalledWith('/meetings/1/end', undefined, {
+      headers: {
+        'X-User-Id': 7,
+      },
+    });
+    expect(response).toEqual({
+      data: {
+        minutesIdx: 1,
+        callIdx: 38,
+        roomIdx: 5,
+        status: 'IN_PROGRESS',
+      },
+      message: '회의록이 시작되었습니다.',
+    });
+  });
 });
