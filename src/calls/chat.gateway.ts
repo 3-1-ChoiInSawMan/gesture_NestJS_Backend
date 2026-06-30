@@ -30,11 +30,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @UseGuards(WsGuard)
   @SubscribeMessage('send_message')
-  handleSendMessage(
+  async handleSendMessage(
     @MessageBody() payload: ChatMessagePayloadDto,
     @ConnectedSocket() client: Socket
   ) {
-    this.chatService.relayMessage(client, payload);
+    return this.chatService.relayMessage(client, payload);
   }
 
   @UseGuards(WsGuard)

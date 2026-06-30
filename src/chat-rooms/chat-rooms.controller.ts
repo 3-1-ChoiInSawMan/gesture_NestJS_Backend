@@ -7,6 +7,7 @@ import { GetChatMessagesQueryDto } from './dto/request/get-chat-messages-query.d
 import { SendChatMessageDto } from './dto/request/send-chat-message.dto';
 import { ReadChatRoomDto } from './dto/request/read-chat-room.dto';
 import { ReplyChatRoomInvitationDto } from './dto/request/reply-chat-room-invitation.dto';
+import { CreateDirectMessageRoomDto } from './dto/request/create-direct-message-room.dto';
 
 @Controller({ path: '/chat-rooms', version: '1' })
 export class ChatRoomsController {
@@ -36,6 +37,21 @@ export class ChatRoomsController {
     @GetUser() user: JwtPayload,
   ) {
     const { data, message } = await this.chatRoomsService.getChatRooms(user.idx);
+
+    return {
+      data,
+      message,
+    };
+  }
+
+  // 1:1 DM 채팅방 조회 또는 생성
+  @UseGuards(JwtGuard)
+  @Post('/dm')
+  async handleGetOrCreateDirectMessageRoom(
+    @Body() body: CreateDirectMessageRoomDto,
+    @GetUser() user: JwtPayload,
+  ) {
+    const { data, message } = await this.chatRoomsService.getOrCreateDirectMessageRoom(body.targetUserIdx, user.idx);
 
     return {
       data,

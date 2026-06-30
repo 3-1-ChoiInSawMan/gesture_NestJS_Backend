@@ -35,6 +35,35 @@ export class RedisStreamService implements OnModuleDestroy {
     return streamId;
   }
 
+  async get(
+    key: string,
+  ) {
+    return this.redis.get(key);
+  }
+
+  async set(
+    key: string,
+    value: string,
+  ) {
+    await this.redis.set(key, value);
+  }
+
+  async setIfAbsent(
+    key: string,
+    value: string,
+    ttlMs: number,
+  ) {
+    const result = await this.redis.set(key, value, 'PX', ttlMs, 'NX');
+
+    return result === 'OK';
+  }
+
+  async del(
+    key: string,
+  ) {
+    await this.redis.del(key);
+  }
+
   async onModuleDestroy() {
     this.redis.disconnect();
   }

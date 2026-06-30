@@ -3,12 +3,14 @@ import { Logger } from "nestjs-pino";
 import type { Socket } from 'socket.io';
 import type { JwtPayload } from "src/common/jwt-payload.interface";
 import { disconnectWithAuthError } from "src/common/ws-error.util";
+import { ChatRoomsService } from "src/chat-rooms/chat-rooms.service";
 import { ChatMessagePayloadDto, ChatRoomPayloadDto, ChatRoomType } from "./dto/chat-message.dto";
 
 @Injectable()
 export class ChatService {
   constructor(
     private readonly logger: Logger,
+    private readonly chatRoomsService: ChatRoomsService,
   ) { };
 
   /**
@@ -75,9 +77,9 @@ export class ChatService {
 
   /**
    * 보낸 사람이 실제로 해당 룸에 들어와 있을 때만, 같은 룸의 '나를 제외한' 상대에게 중계한다.
-   * 저장은 하지 않는다(실시간 전달 전용).
+   * DM은 Core 채팅 메시지로 저장한 뒤 중계하고, 통화방 채팅은 실시간 전달만 수행한다.
    */
-  public relayMessage(client: Socket,payload: ChatMessagePayloadDto) {
+  public async relayMessage(client: Socket,payload: ChatMessagePayloadDto) {
     const userIdx = this.getUser(client)?.idx;
 
     this.logger.log({ userIdx, payload, rooms: [...client.rooms] }, '[chat] relayMessage called');
@@ -96,6 +98,27 @@ export class ChatService {
       disconnectWithAuthError(client, 'CHAT_001');
 
       return;
+    }
+
+    if (payload.roomType === 'dm') {
+      const { data } = await this.chatRoomsService.sendDirectMessage(payload.targetIdx, payload.message, userIdx);
+      const outbound = {
+        roomType: payload.roomType,
+        targetIdx: payload.targetIdx,
+        chatRoomIdx: data.chatRoomIdx,
+        messageIdx: data.messageIdx,
+        message: data.message,
+        type: data.type,
+        fileUrl: data.fileUrl,
+        createdAt: data.createdAt,
+        fromSocketId: client.id,
+        fromUserIdx: userIdx,
+      };
+
+      client.to(roomName).emit('receive_message', outbound);
+      client.emit('message_sent', outbound);
+
+      return outbound;
     }
 
     client.to(roomName).emit('receive_message', {
