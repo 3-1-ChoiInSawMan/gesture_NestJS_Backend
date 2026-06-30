@@ -1,13 +1,15 @@
 import { MeetingsService } from './meetings.service';
 
 describe('MeetingsService Redis Stream publishing', () => {
-  const createService = () => {
+  const createService = (
+    participantLookupFailureCode = 'ROOM_002',
+  ) => {
     const coreHttpService = {
       get: jest.fn().mockRejectedValue({
         response: {
           status: 404,
           data: {
-            statusCode: 'ROOM_002',
+            statusCode: participantLookupFailureCode,
           },
         },
       }),
@@ -155,6 +157,29 @@ describe('MeetingsService Redis Stream publishing', () => {
       },
       message: '회의록이 시작되었습니다.',
     });
+  });
+
+  it('joins call to resolve callIdx before starting meeting minutes when Core returns CALL_003', async () => {
+    const { service, coreHttpService } = createService('CALL_003');
+
+    const response = await service.startMeeting(5, 7);
+
+    expect(coreHttpService.get).toHaveBeenCalledWith('/calls/5/participants', {
+      headers: {
+        'X-User-Id': 7,
+      },
+    });
+    expect(coreHttpService.post).toHaveBeenCalledWith('/calls/5/join', undefined, {
+      headers: {
+        'X-User-Id': 7,
+      },
+    });
+    expect(coreHttpService.post).toHaveBeenCalledWith('/meetings/start/calls/38', undefined, {
+      headers: {
+        'X-User-Id': 7,
+      },
+    });
+    expect(response.message).toBe('회의록이 시작되었습니다.');
   });
 
   it('joins call to resolve callIdx by roomIdx before saving meeting minutes to Core', async () => {

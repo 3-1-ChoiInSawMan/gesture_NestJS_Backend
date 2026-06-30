@@ -174,7 +174,7 @@ export class MeetingsService {
     const response = (error as { response?: { status?: number; data?: { statusCode?: string; code?: string } } }).response;
     const code = response?.data?.statusCode ?? response?.data?.code;
 
-    return response?.status === 404 && ['ROOM_002', 'CALL_001', 'CALL_002'].includes(code ?? '');
+    return response?.status === 404 && ['ROOM_002', 'CALL_001', 'CALL_002', 'CALL_003'].includes(code ?? '');
   }
 
   private normalizeUpdateBody(

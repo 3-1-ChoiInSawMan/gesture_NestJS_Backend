@@ -116,6 +116,8 @@ export class CallRoomsService {
     roomIdx: number,
     userIdx: number
   ) {
+    await this.leaveActiveCallIfPresent(roomIdx, userIdx);
+
     const response = await this.coreHttpService.delete<CreateCallRoomResponse>(`/rooms/${roomIdx}`, {
       headers: {
         'X-User-Id': userIdx
@@ -129,6 +131,8 @@ export class CallRoomsService {
     roomIdx: number,
     userIdx: number
   ) {
+    await this.leaveActiveCallIfPresent(roomIdx, userIdx);
+
     const response = await this.coreHttpService.delete<JoinRoomResponse>(`/rooms/${roomIdx}/leave`, {
       headers: {
         'X-User-Id': userIdx
@@ -136,5 +140,31 @@ export class CallRoomsService {
     });
 
     return response;
+  }
+
+  private async leaveActiveCallIfPresent(
+    roomIdx: number,
+    userIdx: number,
+  ) {
+    try {
+      await this.coreHttpService.post(`/calls/${roomIdx}/leave`, undefined, {
+        headers: {
+          'X-User-Id': userIdx,
+        },
+      });
+    } catch (error) {
+      if (!this.canIgnoreLeaveActiveCallError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  private canIgnoreLeaveActiveCallError(
+    error: unknown,
+  ) {
+    const response = (error as { response?: { status?: number; data?: { statusCode?: string; code?: string } } }).response;
+    const code = response?.data?.statusCode ?? response?.data?.code;
+
+    return response?.status === 404 && ['CALL_002', 'CALL_003'].includes(code ?? '');
   }
 }
