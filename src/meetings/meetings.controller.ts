@@ -14,10 +14,27 @@ export class MeetingsController {
 
   // 회의록 시작
   @UseGuards(JwtGuard)
+  @Post('/start/calls/:roomIdx')
+  async handleStartMeetingByCallSpec(
+    @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
+    @GetUser() user: JwtPayload,
+  ) {
+    return this.startMeeting(roomIdx, user);
+  }
+
+  // 회의록 시작
+  @UseGuards(JwtGuard)
   @Post('/start/rooms/:roomIdx')
   async handleStartMeeting(
     @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
     @GetUser() user: JwtPayload,
+  ) {
+    return this.startMeeting(roomIdx, user);
+  }
+
+  private async startMeeting(
+    roomIdx: number,
+    user: JwtPayload,
   ) {
     const { data, message } = await this.meetingsService.startMeeting(roomIdx, user.idx);
 
@@ -43,6 +60,22 @@ export class MeetingsController {
   }
 
   // 회의록 생성
+  @UseGuards(JwtGuard)
+  @Post('/calls/:roomIdx')
+  async handleSaveMeetingMinutes(
+    @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
+    @Body() body: CreateMeetingMinutesDto,
+    @GetUser() user: JwtPayload,
+  ) {
+    const { data, message } = await this.meetingsService.saveMeetingMinutes(roomIdx, body, user.idx);
+
+    return {
+      data,
+      message,
+    };
+  }
+
+  // 회의록 저장 요청 발행
   @UseGuards(JwtGuard)
   @Post('/rooms/:roomIdx')
   async handleCreateMeetingMinutes(

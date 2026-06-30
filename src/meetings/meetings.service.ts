@@ -62,6 +62,21 @@ export class MeetingsService {
     };
   }
 
+  async saveMeetingMinutes(
+    roomIdx: number,
+    body: CreateMeetingMinutesDto,
+    userIdx: number,
+  ) {
+    const callIdx = await this.resolveCallIdxByRoomIdx(roomIdx, userIdx);
+    const request = convertKeysToSnakeCase(this.normalizeSaveBody(body));
+
+    return this.coreHttpService.post<MeetingMinutesResponse>(`/meetings/calls/${callIdx}`, request, {
+      headers: {
+        'X-User-Id': userIdx,
+      },
+    });
+  }
+
   async getMeetingMinutesByRoomIdx(
     roomIdx: number,
     userIdx: number,
@@ -110,6 +125,18 @@ export class MeetingsService {
       transcript: this.normalizeTranscript(body),
       participants: body.participants,
       ai_summary: body.aiSummary ?? body.ai_summary ?? '',
+      conclusion: body.conclusion,
+    };
+  }
+
+  private normalizeSaveBody(
+    body: CreateMeetingMinutesDto,
+  ) {
+    return {
+      title: body.title,
+      transcript: this.normalizeTranscript(body),
+      participants: body.participants,
+      aiSummary: body.aiSummary ?? body.ai_summary,
       conclusion: body.conclusion,
     };
   }
