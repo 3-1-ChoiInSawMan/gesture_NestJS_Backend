@@ -9,6 +9,7 @@ import { Logger } from 'nestjs-pino';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.enableShutdownHooks();
   const reflector = app.get(Reflector);
 
   app.useLogger(app.get(Logger));
@@ -38,5 +39,4 @@ async function bootstrap() {
   await app.listen(configService.get<number>('SERVER_PORT') ?? 3000);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
-bootstrap();
+void bootstrap();

@@ -7,7 +7,7 @@ import { AuthService } from "src/auth/auth.service";
 import { disconnectWithAuthError } from "src/common/ws-error.util";
 import { WsGuard } from "src/guards/ws.guard";
 import { ChatService } from "./chat.service";
-import { ChatMessagePayloadDto, ChatRoomPayloadDto } from "./dto/chat-message.dto";
+import { ChatMessagePayloadDto, ChatRoomPayloadDto } from "../chat/dto/chat-message.dto";
 
 @WebSocketGateway({
   namespace: '/chat'
@@ -79,6 +79,5 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Disconnected: ${client.id}`);
-    // SocketIO가 room 단위로 자동으로 관리함
   }
 }

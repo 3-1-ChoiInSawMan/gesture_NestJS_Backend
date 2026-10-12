@@ -1,756 +1,311 @@
-import { Injectable } from '@nestjs/common';
-import { CoreHttpService } from 'src/core-http/core-http.service';
-import { GetCallParticipantsResponse } from './dto/core/response/GetCallParticipantsResponse.interface';
-import { JoinCallResponse } from './dto/core/response/JoinCallResponse.interface';
-import { LeaveCallResponse } from './dto/core/response/LeaveCallResponse.interface';
-import { ConfigService } from '@nestjs/config';
-import WebSocket, { RawData } from 'ws';
-import type { Server, Socket } from 'socket.io';
+import { ForbiddenException, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
-import { disconnectWithAuthError, emitWsError } from 'src/common/ws-error.util';
-import { AiMessageDto } from './dto/ai-message.dto';
-import { SignalingPayloadDto } from './dto/call-signaling.dto';
-import { SendFrameDto } from './dto/send-frame.dto';
-import { SendAudioDto } from './dto/send-audio.dto';
-
-type SignalingEvent = 'offer' | 'answer' | 'ice_candidate';
-type AiRequestSource = 'frame' | 'audio';
-
-type PendingAiRequest = {
-  requestId: number;
-  sequence: number;
-  source: AiRequestSource;
-};
-
-type SignalingUserPayload = {
-  callRoomIdx: number;
-  socketId: string;
-  userIdx?: number;
-  nickname?: string;
-};
+import type { Server, Socket } from 'socket.io';
+import type { JwtPayload } from '../common/jwt-payload.interface';
+import { KeyedSerialExecutor } from '../common/keyed-serial-executor';
+import { CoreHttpService } from '../core-http/core-http.service';
+import { SfuService } from '../sfu/sfu.service';
+import type { SfuNotification } from '../sfu/sfu.types';
+import { CallAiService } from './call-ai.service';
+import { CallStateService, type CallParticipant } from './call-state.service';
+import type { GetCallParticipantsResponse } from './dto/core/response/GetCallParticipantsResponse.interface';
+import type { JoinCallResponse } from './dto/core/response/JoinCallResponse.interface';
+import type { LeaveCallResponse } from './dto/core/response/LeaveCallResponse.interface';
+import type { ConnectTransportDto, ConsumeDto, CreateTransportDto, PreferredLayersDto, ProduceDto, SetProducerPausedDto } from './dto/sfu-signaling.dto';
+import type { SendFrameDto } from './dto/send-frame.dto';
+import type { SendAudioDto } from './dto/send-audio.dto';
 
 @Injectable()
-export class CallsService {
-  private readonly AI_WS_URL: string;
-
+export class CallsService implements OnModuleInit, OnModuleDestroy {
   private readonly clients = new Map<string, Socket>();
-  private readonly clientParticipants = new Map<number, number>();
-  private readonly activeSocketIdsByUser = new Map<number, string>();
-  private readonly userNicknames = new Map<number, string>();
-  private readonly pendingFrameRequests = new Map<number, PendingAiRequest[]>();
-  private readonly pendingAudioRequests = new Map<number, PendingAiRequest[]>();
-
-  private aiSocket?: WebSocket;
+  private readonly operations = new KeyedSerialExecutor();
+  private readonly deletedRooms = new Set<number>();
   private server?: Server;
-
-  private nextFrameRequestId = 0;
-  private nextAudioRequestId = 0;
-  private nextAiRequestSequence = 0;
-  private reconnectTimer?: NodeJS.Timeout;
-  private reconnectAttempts = 0;
-  private isShuttingDown = false;
-
-  private readonly AI_RECONNECT_BASE_DELAY = 1000;
-  private readonly AI_RECONNECT_MAX_DELAY = 30000;
+  private unsubscribeMedia?: () => void;
+  private unsubscribeAi?: () => void;
 
   constructor(
-    private readonly coreHttpService: CoreHttpService,
-    private readonly configService: ConfigService,
+    private readonly core: CoreHttpService,
+    private readonly sfu: SfuService,
+    private readonly state: CallStateService,
+    private readonly ai: CallAiService,
     private readonly logger: Logger,
-  ) {
-    this.AI_WS_URL = this.configService.getOrThrow<string>('AI_WS_URL');
+  ) {}
 
-    this.connectAiSocket();
-  };
-
-  private connectAiSocket() {
-    if (this.isShuttingDown) {
-      return;
-    }
-
-    if (
-      this.aiSocket &&
-      (
-        this.aiSocket.readyState == WebSocket.OPEN ||
-        this.aiSocket.readyState == WebSocket.CONNECTING
-      )
-    ) {
-      return;
-    }
-
-    const url = `${this.AI_WS_URL}/cc?debug=1&ignore_hands_down=1`;
-
-    this.logger.log({ url }, 'Connecting to AI WebSocket');
-
-    this.aiSocket = new WebSocket(url);
-
-    this.aiSocket.on('open', () => {
-      this.reconnectAttempts = 0;
-
-      this.logger.log('AI WebSocket connected');
-    });
-
-    this.aiSocket.on('message', (data: RawData) => {
-      this.handleAiMessage(data);
-    });
-
-    this.aiSocket.on('error', (error) => {
-      this.logger.error({ err: error }, 'AI WebSocket error');
-    });
-
-    this.aiSocket.on('close', (code, reason) => {
-      this.logger.warn(
-        {
-          code,
-          reason: reason.toString(),
-        },
-        'AI WebSocket closed',
-      );
-
-      this.aiSocket = undefined;
-      this.clearPendingAiRequests();
-
-      this.scheduleAiReconnect();
+  onModuleInit(): void {
+    this.unsubscribeMedia = this.sfu.onNotification((event) => this.mediaNotification(event));
+    this.unsubscribeAi = this.ai.onTranslation((translation) => {
+      if (this.state.snapshot(translation.callRoomIdx).sessionId !== translation.sessionId) return;
+      this.server?.to(this.roomName(translation.callRoomIdx)).emit(`${translation.source}_translation`, {
+        callRoomIdx: translation.callRoomIdx, text: translation.text,
+      });
     });
   }
 
-  private scheduleAiReconnect() {
-    if (this.isShuttingDown) {
-      return;
-    }
-
-    if (this.reconnectTimer) {
-      return;
-    }
-
-    this.reconnectAttempts += 1;
-
-    const delay = Math.min(
-      this.AI_RECONNECT_BASE_DELAY * 2 ** (this.reconnectAttempts - 1),
-      this.AI_RECONNECT_MAX_DELAY,
-    );
-
-    this.logger.warn(
-      {
-        attempt: this.reconnectAttempts,
-        delay,
-      },
-      'Scheduling AI WebSocket reconnect',
-    );
-
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = undefined;
-      this.connectAiSocket();
-    }, delay);
+  onModuleDestroy(): void {
+    this.unsubscribeMedia?.();
+    this.unsubscribeAi?.();
   }
 
-  public async connectSocket(
-    client: Socket,
-    callRoomIdx: number
-  ) {
-    this.clients.set(client.id, client);
+  setServer(server: Server): void { this.server = server; }
 
-    await this.joinSignalingRoom(client, callRoomIdx);
+  joinCall(roomIdx: number, userIdx: number) {
+    return this.operations.run(String(userIdx), () =>
+      this.core.post<JoinCallResponse>(`/calls/${roomIdx}/join`, undefined, this.headers(userIdx)));
   }
 
-  public disconnectSocket(
-    client: Socket
-  ) {
-    this.leaveSignalingRoom(client);
-    this.clients.delete(client.id);
-  }
-
-  public isValidCallRoomIdx(
-    callRoomIdx: unknown
-  ): callRoomIdx is number {
-    return Number.isInteger(callRoomIdx) && Number(callRoomIdx) > 0;
-  }
-
-  public async joinSignalingRoom(
-    client: Socket,
-    callRoomIdx: number
-  ) {
-    if (!this.isValidCallRoomIdx(callRoomIdx)) {
-      disconnectWithAuthError(client, 'COMMON_400');
-
-      return;
-    }
-
-    const previousCallRoomIdx = Number(client.data.callRoomIdx);
-
-    if (this.isValidCallRoomIdx(previousCallRoomIdx) && previousCallRoomIdx !== callRoomIdx) {
-      this.leaveSignalingRoom(client, previousCallRoomIdx);
-    }
-
-    const roomName = this.getCallRoomName(callRoomIdx);
-
-    if (client.rooms.has(roomName)) {
-      return;
-    }
-
-    const userIdx = this.getClientUserIdx(client);
-
-    if (!Number.isInteger(userIdx)) {
-      emitWsError(client, 'AUTH_001');
-
-      return;
-    }
-
-    this.leavePreviousActiveSocket(client, userIdx);
-    await this.syncParticipantNicknames(callRoomIdx, userIdx);
-
-    const existingParticipants = this.getRoomSignalingUsers(callRoomIdx);
-
-    client.data.callRoomIdx = callRoomIdx;
-    this.clients.set(client.id, client);
-    client.join(roomName);
-    this.activeSocketIdsByUser.set(userIdx, client.id);
-
-    client.emit('existing_participants', {
-      callRoomIdx,
-      participants: existingParticipants,
-    });
-
-    client.to(roomName).emit('user_joined', this.getSignalingUserPayload(client, callRoomIdx));
-  }
-
-  public leaveSignalingRoom(
-    client: Socket,
-    callRoomIdx?: number
-  ) {
-    const resolvedCallRoomIdx = callRoomIdx ?? this.getClientCallRoomIdx(client);
-
-    if (!this.isValidCallRoomIdx(resolvedCallRoomIdx)) {
-      return;
-    }
-
-    const roomName = this.getCallRoomName(resolvedCallRoomIdx);
-
-    if (!client.rooms.has(roomName)) {
-      return;
-    }
-
-    client.to(roomName).emit('user_left', this.getSignalingUserPayload(client, resolvedCallRoomIdx));
-    client.leave(roomName);
-    this.deleteActiveSocketIfMatches(client);
-    this.cleanupInactiveUserNicknames();
-
-    if (client.data.callRoomIdx === resolvedCallRoomIdx) {
-      client.data.callRoomIdx = undefined;
-    }
-  }
-
-  public relaySignalingMessage(
-    event: SignalingEvent,
-    payload: SignalingPayloadDto,
-    client: Socket
-  ) {
-    const { callRoomIdx } = payload;
-
-    if (!this.isValidCallRoomIdx(callRoomIdx) || !client.rooms.has(this.getCallRoomName(callRoomIdx))) {
-      emitWsError(client, 'CALL_002');
-
-      return;
-    }
-
-    client.to(this.getCallRoomName(callRoomIdx)).emit(event, {
-      ...this.toRecord(payload),
-      callRoomIdx,
-      fromSocketId: client.id,
-      fromUserIdx: client.data.user?.idx,
+  leaveCall(roomIdx: number, userIdx: number) {
+    return this.operations.run(String(userIdx), async () => {
+      const result = await this.core.post<LeaveCallResponse>(`/calls/${roomIdx}/leave`, undefined, this.headers(userIdx));
+      const participant = this.state.forUser(userIdx);
+      if (participant?.callRoomIdx === roomIdx) await this.detach(participant);
+      return result;
     });
   }
 
-  private handleAiMessage(
-    data: RawData
-  ) {
-    let parseData: Partial<AiMessageDto>;
+  leaveActiveCall(roomIdx: number, userIdx: number): Promise<void> {
+    return this.operations.run(String(userIdx), async () => {
+      const participant = this.state.forUser(userIdx);
+      if (participant?.callRoomIdx !== roomIdx) return;
+      await this.detach(participant);
+      await this.syncCoreLeave(participant);
+    });
+  }
 
+  getParticipantsByRoomIdx(roomIdx: number, userIdx: number) {
+    return this.core.get<GetCallParticipantsResponse>(`/calls/${roomIdx}/participants`, this.headers(userIdx));
+  }
+
+  async getCallState(roomIdx: number, userIdx: number) {
+    await this.authorize(roomIdx, userIdx);
+    return this.state.snapshot(roomIdx);
+  }
+
+  joinSession(client: Socket, callRoomIdx: number) {
+    const user = this.user(client);
+    return this.operations.run(String(user.idx), async () => {
+      const participantInfo = await this.authorize(callRoomIdx, user.idx);
+      try {
+        return await this.attachSession(client, callRoomIdx, user.idx, participantInfo.nickname);
+      } catch (error) {
+        if (!client.connected && !this.state.forUser(user.idx)) {
+          await this.syncCoreLeave({ socketId: client.id, userIdx: user.idx, nickname: participantInfo.nickname,
+            callRoomIdx, joinedAt: new Date().toISOString() });
+        }
+        throw error;
+      }
+    });
+  }
+
+  private async attachSession(client: Socket, callRoomIdx: number, userIdx: number, nickname: string) {
+      this.assertConnected(client);
+      const current = this.state.forSocket(client.id);
+      if (current?.callRoomIdx === callRoomIdx) {
+        const media = await this.sfu.join(String(callRoomIdx), client.id);
+        return { ...media, state: this.state.snapshot(callRoomIdx) };
+      }
+
+      const media = await this.sfu.join(String(callRoomIdx), client.id);
+      try {
+        this.assertConnected(client);
+        const previous = this.state.forUser(userIdx);
+        if (previous) {
+          await this.detach(previous);
+          if (previous.callRoomIdx !== callRoomIdx) await this.syncCoreLeave(previous);
+        }
+        await client.join(this.roomName(callRoomIdx));
+        this.assertConnected(client);
+        if (this.deletedRooms.has(callRoomIdx)) throw new ForbiddenException('Call room has been deleted');
+        const existingProducers = this.sfu.listProducers(String(callRoomIdx), client.id);
+        const participant: CallParticipant = {
+          socketId: client.id, userIdx, nickname,
+          joinedAt: new Date().toISOString(), callRoomIdx,
+        };
+        this.clients.set(client.id, client);
+        this.state.add(participant);
+        const snapshot = this.state.snapshot(callRoomIdx);
+        client.emit('existing_participants', {
+          callRoomIdx, participants: snapshot.participants.filter((peer) => peer.socketId !== client.id),
+        });
+        client.to(this.roomName(callRoomIdx)).emit('user_joined', participant);
+        this.emitState(callRoomIdx);
+        return { ...media, existingProducers, state: snapshot };
+      } catch (error) {
+        await this.sfu.leave(String(callRoomIdx), client.id);
+        await client.leave(this.roomName(callRoomIdx));
+        throw error;
+      }
+  }
+
+  leaveSession(client: Socket, callRoomIdx: number) {
+    const user = this.user(client);
+    return this.operations.run(String(user.idx), async () => {
+      const participant = this.state.forSocket(client.id);
+      if (!participant || participant.callRoomIdx !== callRoomIdx) return { left: true };
+      await this.detach(participant);
+      return { left: true, coreSynced: await this.syncCoreLeave(participant) };
+    });
+  }
+
+  disconnectSocket(client: Socket): Promise<void> {
+    const user = (client.data as { user?: JwtPayload }).user;
+    if (!user) return Promise.resolve();
+    return this.operations.run(String(user.idx), async () => {
+      const participant = this.state.forSocket(client.id);
+      if (!participant) return;
+      await this.detach(participant);
+      await this.syncCoreLeave(participant);
+    });
+  }
+
+  async closeRoom(callRoomIdx: number): Promise<void> {
+    this.deletedRooms.add(callRoomIdx);
+    for (const participant of this.state.snapshot(callRoomIdx).participants) {
+      await this.operations.run(String(participant.userIdx), async () => {
+        const current = this.state.forSocket(participant.socketId);
+        if (current?.callRoomIdx === callRoomIdx) await this.detach(current);
+      });
+    }
+    await this.sfu.closeRoom(String(callRoomIdx));
+  }
+
+  createTransport(client: Socket, input: CreateTransportDto) {
+    return this.mediaRequest(client, (roomId) => this.sfu.createTransport(roomId, client.id, input.direction));
+  }
+  connectTransport(client: Socket, input: ConnectTransportDto) {
+    return this.mediaRequest(client, (roomId) => this.sfu.connectTransport(roomId, client.id, input.transportId, input.dtlsParameters));
+  }
+  restartIce(client: Socket, transportId: string) {
+    return this.mediaRequest(client, (roomId) => this.sfu.restartIce(roomId, client.id, transportId));
+  }
+  produce(client: Socket, input: ProduceDto) {
+    return this.mediaRequest(client, async (roomId) => {
+      const producer = await this.sfu.produce(roomId, client.id, input);
+      client.to(this.roomName(Number(roomId))).emit('new_producer', producer);
+      return { id: producer.producerId };
+    });
+  }
+  consume(client: Socket, input: ConsumeDto) {
+    return this.mediaRequest(client, (roomId) => this.sfu.consume(roomId, client.id, input));
+  }
+  resumeConsumer(client: Socket, consumerId: string) {
+    return this.mediaRequest(client, (roomId) => this.sfu.resumeConsumer(roomId, client.id, consumerId));
+  }
+  setPreferredLayers(client: Socket, input: PreferredLayersDto) {
+    return this.mediaRequest(client, (roomId) => this.sfu.setPreferredLayers(roomId, client.id, input.consumerId, input.spatialLayer, input.temporalLayer));
+  }
+  setProducerPaused(client: Socket, input: SetProducerPausedDto) {
+    return this.mediaRequest(client, (roomId) => this.sfu.setProducerPaused(roomId, client.id, input.producerId, input.paused));
+  }
+  closeResource(client: Socket, kind: 'producer' | 'consumer' | 'transport', id: string) {
+    return this.mediaRequest(client, (roomId) => this.sfu.closeResource(roomId, client.id, kind, id));
+  }
+  listProducers(client: Socket) {
+    return this.mediaRequest(client, (roomId) => Promise.resolve(this.sfu.listProducers(roomId, client.id)));
+  }
+  sessionState(client: Socket) {
+    const participant = this.requireParticipant(client);
+    return this.state.snapshot(participant.callRoomIdx);
+  }
+
+  sendFrame(payload: SendFrameDto, client: Socket) {
+    return this.sendAi(client, payload.callRoomIdx, 'frame', payload.frame);
+  }
+  sendAudio(payload: SendAudioDto, client: Socket) {
+    return this.sendAi(client, payload.callRoomIdx, 'audio', payload.audio);
+  }
+
+  private sendAi(client: Socket, roomIdx: number, source: 'frame' | 'audio', content: unknown) {
+    const participant = this.requireParticipant(client);
+    if (participant.callRoomIdx !== roomIdx) throw new ForbiddenException('Not a participant of this call');
+    return this.ai.send(source, roomIdx, content, this.state.snapshot(roomIdx).sessionId!);
+  }
+
+  private mediaRequest<T>(client: Socket, operation: (roomId: string) => Promise<T>): Promise<T> {
+    const user = this.user(client);
+    return this.operations.run(String(user.idx), () => {
+      this.assertConnected(client);
+      const participant = this.requireParticipant(client);
+      return operation(String(participant.callRoomIdx));
+    });
+  }
+
+  private requireParticipant(client: Socket): CallParticipant {
+    const user = this.user(client);
+    const participant = this.state.forSocket(client.id);
+    if (!participant || participant.userIdx !== user.idx) throw new ForbiddenException('Join a call first');
+    return participant;
+  }
+
+  private async authorize(roomIdx: number, userIdx: number) {
+    if (!Number.isInteger(roomIdx) || roomIdx <= 0) throw new ForbiddenException('Invalid call room');
+    if (this.deletedRooms.has(roomIdx)) throw new ForbiddenException('Call room has been deleted');
+    const { data } = await this.getParticipantsByRoomIdx(roomIdx, userIdx);
+    const participant = data.participants.find((candidate) => candidate.userIdx === userIdx);
+    if (!participant) throw new ForbiddenException('Join the call through the REST API first');
+    return participant;
+  }
+
+  private async detach(participant: CallParticipant): Promise<void> {
+    this.state.remove(participant.socketId);
+    const client = this.clients.get(participant.socketId);
+    this.clients.delete(participant.socketId);
+    if (client) {
+      try {
+        await client.leave(this.roomName(participant.callRoomIdx));
+      } catch (error: unknown) {
+        this.logger.error({ err: error, socketId: client.id }, 'Socket room leave failed; disconnecting');
+        client.disconnect(true);
+      }
+    }
+    await this.sfu.leave(String(participant.callRoomIdx), participant.socketId);
+    this.server?.to(this.roomName(participant.callRoomIdx)).emit('user_left', participant);
+    client?.emit('call_left', { callRoomIdx: participant.callRoomIdx });
+    this.emitState(participant.callRoomIdx);
+  }
+
+  private async syncCoreLeave(participant: CallParticipant): Promise<boolean> {
     try {
-      parseData = JSON.parse(data.toString());
-    } catch {
-      this.logger.warn('Dropped malformed AI message');
-
-      return;
+      await this.core.post<LeaveCallResponse>(`/calls/${participant.callRoomIdx}/leave`, undefined, this.headers(participant.userIdx));
+      return true;
+    } catch (error: unknown) {
+      this.logger.error({ err: error, participant }, 'Call resources released but core leave failed');
+      return false;
     }
-
-    const { text, callRoomIdx } = parseData;
-
-    if (
-      typeof text !== 'string'
-      || text.length === 0
-      || !this.isValidCallRoomIdx(callRoomIdx)
-    ) {
-      return;
-    }
-
-    const pendingRequest = this.shiftNextPendingAiRequest(callRoomIdx);
-
-    if (!pendingRequest) {
-      this.logger.warn({ parseData }, 'Dropped AI message without matching request sender');
-
-      return;
-    }
-
-    if (!this.server) {
-      this.logger.warn('Server not initialized; message dropped');
-
-      return;
-    }
-    
-    this.server.to(this.getCallRoomName(callRoomIdx)).emit(this.getTranslationEvent(pendingRequest.source), {
-      text,
-      callRoomIdx,
-    });
   }
 
-  public sendFrame(
-    payload: SendFrameDto,
-    client: Socket
-  ) {
-    const { frame, callRoomIdx } = payload;
-    const userIdx = this.getClientUserIdx(client);
-
-    if (!Number.isInteger(userIdx)) {
-      emitWsError(client, 'AUTH_001');
-
-      return;
-    }
-
-    if (!this.isValidCallRoomIdx(callRoomIdx) || !client.rooms.has(this.getCallRoomName(callRoomIdx))) {
-      emitWsError(client, 'CALL_002');
-
-      return;
-    }
-
-    if (!this.aiSocket || this.aiSocket.readyState !== WebSocket.OPEN) {
-      this.logger.warn('AI WebSocket is not open; frame dropped');
-
-      return;
-    }
-
-    const requestId = this.pushPendingFrameRequest(callRoomIdx);
-
-    this.aiSocket.send(
-      JSON.stringify({
-        frame,
-        callRoomIdx,
-      }),
-      (error) => {
-        if (error) {
-          this.removePendingFrameRequest(callRoomIdx, requestId);
-          this.logger.error({ err: error }, 'AI WebSocket send failed');
+  private mediaNotification(event: SfuNotification): void {
+    const roomIdx = Number(event.roomId);
+    if (event.event === 'media_room_closed') {
+      for (const participant of this.state.snapshot(roomIdx).participants) {
+        this.state.remove(participant.socketId);
+        const client = this.clients.get(participant.socketId);
+        this.clients.delete(participant.socketId);
+        if (client) {
+          client.emit('media_room_closed', { callRoomIdx: roomIdx });
+          void client.leave(this.roomName(roomIdx));
         }
-      },
-    );
-  }
-
-  public sendAudio(
-    payload: SendAudioDto,
-    client: Socket
-  ) {
-    const { audio, callRoomIdx } = payload;
-    const userIdx = this.getClientUserIdx(client);
-
-    if (!Number.isInteger(userIdx)) {
-      emitWsError(client, 'AUTH_001');
-
-      return;
-    }
-
-    if (!this.isValidCallRoomIdx(callRoomIdx) || !client.rooms.has(this.getCallRoomName(callRoomIdx))) {
-      emitWsError(client, 'CALL_002');
-
-      return;
-    }
-
-    if (!this.aiSocket || this.aiSocket.readyState !== WebSocket.OPEN) {
-      this.logger.warn('AI WebSocket is not open; audio dropped');
-
-      return;
-    }
-
-    const requestId = this.pushPendingAudioRequest(callRoomIdx);
-
-    this.aiSocket.send(
-      JSON.stringify({
-        audio,
-        callRoomIdx,
-      }),
-      (error) => {
-        if (error) {
-          this.removePendingAudioRequest(callRoomIdx, requestId);
-          this.logger.error({ err: error }, 'AI WebSocket send failed');
-        }
-      },
-    );
-  }
-
-  public async joinCall(
-    roomIdx: number,
-    userIdx: number,
-  ) {
-    const response = await this.coreHttpService.post<JoinCallResponse>(`/calls/${roomIdx}/join`, undefined, {
-      headers: {
-        'X-User-Id': userIdx
       }
-    });
-
-    this.clientParticipants.set(userIdx, roomIdx);
-
-    return response;
-  }
-
-  public async leaveCall(
-    roomIdx: number,
-    userIdx: number,
-  ) {
-    const response = await this.coreHttpService.post<LeaveCallResponse>(`/calls/${roomIdx}/leave`, undefined, {
-      headers: {
-        'X-User-Id': userIdx
-      }
-    });
-
-    this.clientParticipants.delete(userIdx);
-
-    return response;
-  }
-
-  public async getParticipantsByRoomIdx(
-    roomIdx: number,
-    userIdx: number,
-  ) {
-    const response = await this.coreHttpService.get<GetCallParticipantsResponse>(`/calls/${roomIdx}/participants`, {
-      headers: {
-        'X-User-Id': userIdx
-      }
-    });
-
-    return response;
-  }
-
-  public setServer(
-    server: Server
-  ) {
-    this.server = server;
-  }
-
-  private getClientCallRoomIdx(
-    client: Socket
-  ) {
-    const callRoomIdx = Number(client.data.callRoomIdx);
-
-    if (this.isValidCallRoomIdx(callRoomIdx)) {
-      return callRoomIdx;
-    }
-  }
-
-  private getCallRoomName(
-    callRoomIdx: number
-  ) {
-    return `call_room:${callRoomIdx}`;
-  }
-
-  private getSignalingUserPayload(
-    client: Socket,
-    callRoomIdx: number
-  ): SignalingUserPayload {
-    const userIdx = this.getClientUserIdx(client);
-
-    return {
-      callRoomIdx,
-      socketId: client.id,
-      userIdx,
-      nickname: this.getClientNickname(client, userIdx),
-    };
-  }
-
-  private getClientUserIdx(
-    client: Socket
-  ) {
-    const userIdx = client.data.user?.idx;
-
-    if (Number.isInteger(userIdx)) {
-      return userIdx;
-    }
-  }
-
-  private getClientNickname(
-    client: Socket,
-    userIdx?: number,
-  ) {
-    if (typeof userIdx === 'number' && Number.isInteger(userIdx)) {
-      return this.userNicknames.get(userIdx) ?? client.data.user?.nickname;
-    }
-
-    return client.data.user?.nickname;
-  }
-
-  private getRoomSignalingUsers(
-    callRoomIdx: number
-  ) {
-    const roomName = this.getCallRoomName(callRoomIdx);
-    const participants: SignalingUserPayload[] = [];
-
-    for (const client of this.clients.values()) {
-      const userIdx = this.getClientUserIdx(client);
-
-      if (
-        !client.rooms.has(roomName)
-        || !Number.isInteger(userIdx)
-        || this.activeSocketIdsByUser.get(userIdx) !== client.id
-      ) {
-        continue;
-      }
-
-      participants.push(this.getSignalingUserPayload(client, callRoomIdx));
-    }
-
-    return participants;
-  }
-
-  private async syncParticipantNicknames(
-    callRoomIdx: number,
-    userIdx: number
-  ) {
-    try {
-      const { data } = await this.getParticipantsByRoomIdx(callRoomIdx, userIdx);
-
-      for (const participant of data.participants) {
-        if (participant.userIdx !== userIdx && !this.activeSocketIdsByUser.has(participant.userIdx)) {
-          continue;
-        }
-
-        this.userNicknames.set(participant.userIdx, participant.nickname);
-      }
-    } catch (error) {
-      this.logger.warn({ err: error, callRoomIdx, userIdx }, 'Failed to sync call participant nicknames');
-    }
-  }
-
-  private leavePreviousActiveSocket(
-    client: Socket,
-    userIdx: number
-  ) {
-    const previousSocketId = this.activeSocketIdsByUser.get(userIdx);
-
-    if (!previousSocketId || previousSocketId === client.id) {
       return;
     }
+    const target = event.peerId ?? this.roomName(roomIdx);
+    this.server?.to(target).emit(event.event, { callRoomIdx: roomIdx, ...event.data });
+  }
 
-    const previousClient = this.clients.get(previousSocketId);
-
-    if (!previousClient) {
-      this.activeSocketIdsByUser.delete(userIdx);
-      this.userNicknames.delete(userIdx);
-
-      return;
+  private user(client: Socket): JwtPayload {
+    const user = (client.data as { user?: JwtPayload }).user;
+    if (!user || !Number.isInteger(user.idx) || user.idx <= 0 || !Number.isFinite(user.exp) || user.exp * 1000 <= Date.now()) {
+      throw new ForbiddenException('Authentication required');
     }
-
-    this.leaveSignalingRoom(previousClient);
-    previousClient.disconnect(true);
+    return user;
   }
 
-  private deleteActiveSocketIfMatches(
-    client: Socket
-  ) {
-    const userIdx = this.getClientUserIdx(client);
-
-    if (!Number.isInteger(userIdx)) {
-      return;
-    }
-
-    if (this.activeSocketIdsByUser.get(userIdx) === client.id) {
-      this.activeSocketIdsByUser.delete(userIdx);
-      this.userNicknames.delete(userIdx);
-    }
+  private assertConnected(client: Socket): void {
+    if (!client.connected) throw new Error('Socket disconnected during the request');
   }
-
-  private cleanupInactiveUserNicknames() {
-    for (const userIdx of this.userNicknames.keys()) {
-      const socketId = this.activeSocketIdsByUser.get(userIdx);
-
-      if (!socketId || !this.clients.has(socketId)) {
-        this.activeSocketIdsByUser.delete(userIdx);
-        this.userNicknames.delete(userIdx);
-      }
-    }
+  private emitState(roomIdx: number): void {
+    this.server?.to(this.roomName(roomIdx)).emit('call_state', this.state.snapshot(roomIdx));
   }
-
-  private pushPendingFrameRequest(
-    callRoomIdx: number
-  ) {
-    return this.pushPendingRequest(
-      this.pendingFrameRequests,
-      callRoomIdx,
-      this.createFrameRequestId(),
-      'frame',
-    );
-  }
-
-  private pushPendingAudioRequest(
-    callRoomIdx: number
-  ) {
-    return this.pushPendingRequest(
-      this.pendingAudioRequests,
-      callRoomIdx,
-      this.createAudioRequestId(),
-      'audio',
-    );
-  }
-
-  private shiftPendingFrameRequest(
-    callRoomIdx: number
-  ) {
-    return this.shiftPendingRequest(this.pendingFrameRequests, callRoomIdx);
-  }
-
-  private shiftPendingAudioRequest(
-    callRoomIdx: number
-  ) {
-    return this.shiftPendingRequest(this.pendingAudioRequests, callRoomIdx);
-  }
-
-  private shiftNextPendingAiRequest(
-    callRoomIdx: number
-  ) {
-    const pendingFrameRequest = this.peekPendingRequest(this.pendingFrameRequests, callRoomIdx);
-    const pendingAudioRequest = this.peekPendingRequest(this.pendingAudioRequests, callRoomIdx);
-
-    if (!pendingFrameRequest && !pendingAudioRequest) {
-      return;
-    }
-
-    if (
-      !pendingAudioRequest ||
-      (
-        pendingFrameRequest &&
-        pendingFrameRequest.sequence <= pendingAudioRequest.sequence
-      )
-    ) {
-      return this.shiftPendingFrameRequest(callRoomIdx);
-    }
-
-    return this.shiftPendingAudioRequest(callRoomIdx);
-  }
-
-  private removePendingFrameRequest(
-    callRoomIdx: number,
-    requestId: number
-  ) {
-    this.removePendingRequest(this.pendingFrameRequests, callRoomIdx, requestId);
-  }
-
-  private removePendingAudioRequest(
-    callRoomIdx: number,
-    requestId: number
-  ) {
-    this.removePendingRequest(this.pendingAudioRequests, callRoomIdx, requestId);
-  }
-
-  private pushPendingRequest(
-    requestsByCallRoomIdx: Map<number, PendingAiRequest[]>,
-    callRoomIdx: number,
-    requestId: number,
-    source: AiRequestSource,
-  ) {
-    const requests = requestsByCallRoomIdx.get(callRoomIdx) ?? [];
-
-    requests.push({
-      requestId,
-      sequence: this.createAiRequestSequence(),
-      source,
-    });
-
-    requestsByCallRoomIdx.set(callRoomIdx, requests);
-
-    return requestId;
-  }
-
-  private peekPendingRequest(
-    requestsByCallRoomIdx: Map<number, PendingAiRequest[]>,
-    callRoomIdx: number,
-  ) {
-    return requestsByCallRoomIdx.get(callRoomIdx)?.[0];
-  }
-
-  private shiftPendingRequest(
-    requestsByCallRoomIdx: Map<number, PendingAiRequest[]>,
-    callRoomIdx: number,
-  ) {
-    const requests = requestsByCallRoomIdx.get(callRoomIdx);
-
-    if (!requests || requests.length === 0) {
-      return;
-    }
-
-    const request = requests.shift();
-
-    if (requests.length === 0) {
-      requestsByCallRoomIdx.delete(callRoomIdx);
-    }
-
-    return request;
-  }
-
-  private removePendingRequest(
-    requestsByCallRoomIdx: Map<number, PendingAiRequest[]>,
-    callRoomIdx: number,
-    requestId: number
-  ) {
-    const requests = requestsByCallRoomIdx.get(callRoomIdx);
-
-    if (!requests) {
-      return;
-    }
-
-    const index = requests.findIndex((request) => request.requestId === requestId);
-
-    if (index !== -1) {
-      requests.splice(index, 1);
-    }
-
-    if (requests.length === 0) {
-      requestsByCallRoomIdx.delete(callRoomIdx);
-    }
-  }
-
-  private clearPendingAiRequests() {
-    this.pendingFrameRequests.clear();
-    this.pendingAudioRequests.clear();
-  }
-
-  private createFrameRequestId() {
-    this.nextFrameRequestId = (this.nextFrameRequestId % Number.MAX_SAFE_INTEGER) + 1;
-
-    return this.nextFrameRequestId;
-  }
-
-  private createAudioRequestId() {
-    this.nextAudioRequestId = (this.nextAudioRequestId % Number.MAX_SAFE_INTEGER) + 1;
-
-    return this.nextAudioRequestId;
-  }
-
-  private createAiRequestSequence() {
-    this.nextAiRequestSequence = (this.nextAiRequestSequence % Number.MAX_SAFE_INTEGER) + 1;
-
-    return this.nextAiRequestSequence;
-  }
-
-  private getTranslationEvent(
-    source: AiRequestSource
-  ) {
-    return `${source}_translation`;
-  }
-
-  private toRecord(
-    payload: unknown
-  ) {
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      return {};
-    }
-
-    return payload as Record<string, unknown>;
-  }
+  private headers(userIdx: number) { return { headers: { 'X-User-Id': userIdx } }; }
+  private roomName(roomIdx: number) { return `call_room:${roomIdx}`; }
 }

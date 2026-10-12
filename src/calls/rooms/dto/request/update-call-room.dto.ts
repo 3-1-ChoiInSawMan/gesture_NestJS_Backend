@@ -1,5 +1,7 @@
-import { IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, ValidateIf } from "class-validator";
-import { CallRoomCategory } from "src/call-rooms/enums/call-room-category.enum";
+import { IsBoolean, IsEnum, IsNotEmpty, IsInt, IsOptional, IsString, Matches, Min, ValidateIf } from "class-validator";
+import { Transform, Type } from 'class-transformer';
+import { parseFormBoolean } from './room-field.transforms';
+import { CallRoomCategory } from "src/calls/rooms/enums/call-room-category.enum";
 
 export class UpdateCallRoomDto {
   @IsOptional()
@@ -17,7 +19,7 @@ export class UpdateCallRoomDto {
   @IsEnum(CallRoomCategory)
   category: CallRoomCategory;
 
-  @ValidateIf((o) => o.is_public === false)
+  @ValidateIf((o: UpdateCallRoomDto) => o.isPublic === false || o.password !== undefined)
   @IsNotEmpty()
   @Matches(/^\d{4}$/, {
     message: 'Password must be a 4-digit number between 0000 and 9999.'
@@ -26,11 +28,14 @@ export class UpdateCallRoomDto {
 
   @IsOptional()
   @IsNotEmpty()
-  @IsNumber()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   maxParticipant: number;
 
   @IsOptional()
   @IsNotEmpty()
   @IsBoolean()
+  @Transform(parseFormBoolean)
   isPublic: boolean;
 }

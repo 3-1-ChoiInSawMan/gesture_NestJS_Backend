@@ -41,6 +41,7 @@
     "dotenv": "^17.3.1",
     "form-data": "^4.0.5",
     "ioredis": "^5.11.1",
+    "mediasoup": "^3.27.1",
     "nestjs-pino": "^4.6.1",
     "nodemailer": "^8.0.3",
     "passport-jwt": "^4.0.1",
@@ -93,5 +94,8 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "allowScripts": {
+    "mediasoup@3.27.1": true
   }
 }

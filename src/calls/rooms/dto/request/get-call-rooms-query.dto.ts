@@ -1,7 +1,7 @@
 import { Type } from "class-transformer";
 import { IsEnum, IsInt, IsOptional, Min } from "class-validator";
-import { CallRoomCategory } from "src/call-rooms/enums/call-room-category.enum";
-import { CallRoomSort } from "src/call-rooms/enums/call-room-sort.enum";
+import { CallRoomCategory } from "src/calls/rooms/enums/call-room-category.enum";
+import { CallRoomSort } from "src/calls/rooms/enums/call-room-sort.enum";
 
 export class GetCallRoomsQueryDto {
   @IsOptional()

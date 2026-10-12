@@ -15,7 +15,6 @@ export class ChatRoomsController {
     private readonly chatRoomsService: ChatRoomsService,
   ) {};
 
-  // 채팅방 생성
   @UseGuards(JwtGuard)
   @Post()
   async handleCreateChatRoom(
@@ -30,7 +29,6 @@ export class ChatRoomsController {
     };
   }
 
-  // 내 채팅방 목록 조회
   @UseGuards(JwtGuard)
   @Get()
   async handleGetChatRooms(
@@ -44,7 +42,6 @@ export class ChatRoomsController {
     };
   }
 
-  // 1:1 DM 채팅방 조회 또는 생성
   @UseGuards(JwtGuard)
   @Post('/dm')
   async handleGetOrCreateDirectMessageRoom(
@@ -59,7 +56,6 @@ export class ChatRoomsController {
     };
   }
 
-  // 채팅방 초대 수락/거절
   @UseGuards(JwtGuard)
   @Patch('/invitations/:invitationIdx')
   async handleReplyInvitation(
@@ -75,7 +71,6 @@ export class ChatRoomsController {
     };
   }
 
-  // 채팅방 상세 조회
   @UseGuards(JwtGuard)
   @Get('/:chatRoomIdx')
   async handleGetChatRoom(
@@ -90,7 +85,6 @@ export class ChatRoomsController {
     };
   }
 
-  // 메시지 목록 조회
   @UseGuards(JwtGuard)
   @Get('/:chatRoomIdx/messages')
   async handleGetMessages(
@@ -106,7 +100,6 @@ export class ChatRoomsController {
     };
   }
 
-  // 메시지 전송
   @UseGuards(JwtGuard)
   @Post('/:chatRoomIdx/messages')
   async handleSendMessage(
@@ -122,7 +115,6 @@ export class ChatRoomsController {
     };
   }
 
-  // 메시지 읽음 처리
   @UseGuards(JwtGuard)
   @Patch('/:chatRoomIdx/read')
   async handleReadChatRoom(

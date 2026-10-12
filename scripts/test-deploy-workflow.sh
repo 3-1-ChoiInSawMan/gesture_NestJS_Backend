@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# 호환용 래퍼: 로컬 배포는 deploy-local.sh가 act workflow를 실행한다.
 
 set -euo pipefail
 

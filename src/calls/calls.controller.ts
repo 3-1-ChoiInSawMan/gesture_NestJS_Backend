@@ -10,7 +10,6 @@ export class CallsController {
     private readonly callsService: CallsService,
   ) { };
 
-  // 통화 참여
   @UseGuards(JwtGuard)
   @Post('/:roomIdx/join')
   async handleJoinCall(
@@ -27,7 +26,6 @@ export class CallsController {
     };
   }
 
-  // 통화 나가기
   @UseGuards(JwtGuard)
   @Delete('/:roomIdx/leave')
   async handleLeaveCall(
@@ -44,7 +42,15 @@ export class CallsController {
     };
   }
 
-  // 통화 참여자 조회
+  @UseGuards(JwtGuard)
+  @Get('/:roomIdx/state')
+  async handleGetCallState(
+    @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
+    @GetUser() user: JwtPayload,
+  ) {
+    return { data: { call: await this.callsService.getCallState(roomIdx, user.idx) } };
+  }
+
   @UseGuards(JwtGuard)
   @Get('/:roomIdx/participants')
   async handleGetParticipantsByRoomIdx(

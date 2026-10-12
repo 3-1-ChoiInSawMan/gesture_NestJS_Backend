@@ -11,7 +11,6 @@ export class AuthControllerV1 {
   constructor (
     private readonly authService: AuthService,
   ) { };
-  /* 계정 관련 로직 */
 
   @Post('login')
   async handleLogin(
@@ -91,9 +90,6 @@ export class AuthControllerV1 {
     };
   }
 
-  /**
-   * 계정 복구
-   */
   @Post('recover')
   handleRecoverAccount() {
     throw new NotImplementedException();
