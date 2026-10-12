@@ -13,17 +13,41 @@ jobs:
     name: Deploy
     runs-on: ubuntu-24.04
     environment: production
-
+  
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-
-    - name: Copy SSH Key
+        
+    - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+    
+        printf '%s\n' "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+    
+        chmod 700 ~/.ssh
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.EC2_HOST_IP }} >> ~/.ssh/known_hosts
+    
+        echo "=== key type ==="
+        ssh-keygen -lf ~/.ssh/id_rsa
+    
+        echo "=== host scan ==="
+        ssh-keyscan -H "${{ secrets.EC2_HOST_IP }}" >> ~/.ssh/known_hosts
+  
+    - name: Test SSH
+      run: |
+        ssh -vvv \
+          -i ~/.ssh/id_rsa \
+          -o IdentitiesOnly=yes \
+          -o PreferredAuthentications=publickey \
+          ec2-user@${{ secrets.EC2_HOST_IP }} \
+          "whoami && hostname"
+
+    # - name: Copy SSH Key
+    #   run: |
+    #     mkdir -p ~/.ssh
+    #     echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+    #     chmod 600 ~/.ssh/id_rsa
+    #     ssh-keyscan -H ${{ secrets.EC2_HOST_IP }} >> ~/.ssh/known_hosts
 
     - name: Deploy Service
       run: |
