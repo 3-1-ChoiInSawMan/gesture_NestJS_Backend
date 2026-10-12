@@ -16,12 +16,6 @@ export class CoreHttpService {
     this.coreUrl = configService.getOrThrow<string>("SPRING_SERVER_URL");
   };
 
-  /**
-   * Core 서버 URI 엔드포인트로 GET 요청을 전송합니다.
-   * @param uri "/example/uri" => coreBaseUrl/api/v1/example/uri
-   * @param config 
-   * @returns data: T
-   */
   public async get<T>(uri: string, config?: AxiosRequestConfig): Promise<CoreResponse<T>> {
     const { data } = await firstValueFrom(
       this.httpService.get<unknown>(this.coreUrl + uri, config),
@@ -29,13 +23,6 @@ export class CoreHttpService {
     return convertKeysToCamelCase<CoreResponse<T>>(data);
   }
 
-  /**
-   * Core 서버 URI 엔드포인트로 POST 요청을 전송합니다.
-   * @param uri "/example/uri" => coreBaseUrl/api/v1/example/uri
-   * @param body 
-   * @param config 
-   * @returns data: T
-   */
   public async post<T>(uri: string, body?: unknown, config?: AxiosRequestConfig): Promise<CoreResponse<T>> {
     const { data } = await firstValueFrom(
       this.httpService.post<unknown>(this.coreUrl + uri, body, config),
@@ -44,13 +31,6 @@ export class CoreHttpService {
     return convertKeysToCamelCase<CoreResponse<T>>(data);
   }
 
-  /**
-   * Core 서버 URI 엔드포인트로 PATCH 요청을 전송합니다.
-   * @param uri "/example/uri" => coreBaseUrl/api/v1/example/uri
-   * @param body 
-   * @param config 
-   * @returns data: T
-   */
   public async patch<T>(uri: string, body?: unknown, config?: AxiosRequestConfig): Promise<CoreResponse<T>> {
     const { data } = await firstValueFrom(
       this.httpService.patch<unknown>(this.coreUrl + uri, body, config),
@@ -59,12 +39,6 @@ export class CoreHttpService {
     return convertKeysToCamelCase<CoreResponse<T>>(data);
   }
 
-  /**
-   * Core 서버 URI 엔드포인트로 DELETE 요청을 전송합니다.
-   * @param uri "/example/uri" => coreBaseUrl/api/v1/example/uri
-   * @param config 
-   * @returns data: T
-   */
   public async delete<T>(uri: string, config?: AxiosRequestConfig): Promise<CoreResponse<T>> {
     const { data } = await firstValueFrom(
       this.httpService.delete<unknown>(this.coreUrl + uri, config),

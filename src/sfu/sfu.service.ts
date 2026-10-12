@@ -7,7 +7,6 @@ import { MEDIA_CODECS, transportOptions } from './sfu.config';
 import type { MediaPeer, MediaRoom, MediaTag, ProducerInfo, SfuNotification, TransportDirection } from './sfu.types';
 import { WorkerManager } from './worker-manager.service';
 
-/** Owns media resources only. Call authorization and Socket.IO belong to calls. */
 @Injectable()
 export class SfuService implements OnModuleDestroy {
   private readonly rooms = new Map<string, MediaRoom>();

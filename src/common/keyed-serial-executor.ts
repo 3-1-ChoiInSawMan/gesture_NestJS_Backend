@@ -1,4 +1,3 @@
-/** Serializes asynchronous operations sharing an owner, without retaining idle keys. */
 export class KeyedSerialExecutor {
   private readonly tails = new Map<string, Promise<unknown>>();
 

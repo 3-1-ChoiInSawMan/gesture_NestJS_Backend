@@ -12,7 +12,6 @@ export class NotificationsController {
     private readonly notificationsService: NotificationsService
   ) { };
 
-  // 알림 구독
   @UseGuards(JwtGuard)
   @Sse()
   async handleGetNotifications(
@@ -21,7 +20,6 @@ export class NotificationsController {
     return this.notificationsService.subscribe(user.idx);
   }
 
-  // 알림 읽음 처리
   @UseGuards(JwtGuard)
   @Patch('/:notificationIdx/read')
   async handleReadNotification(
@@ -38,7 +36,6 @@ export class NotificationsController {
     };
   }
 
-  // 알림 설정 조회
   @UseGuards(JwtGuard)
   @Get('/settings')
   async handleGetNotificationSetting(
@@ -54,7 +51,6 @@ export class NotificationsController {
     };
   }
 
-  // 알림 설정 변경
   @UseGuards(JwtGuard)
   @Patch('/settings/:notificationType')
   async handleUpdateNotificationSetting(

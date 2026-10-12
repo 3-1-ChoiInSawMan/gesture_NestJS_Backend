@@ -16,7 +16,7 @@ export class WorkerManager implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly config: ConfigService) {}
 
   async onModuleInit(): Promise<void> {
-    transportOptions(this.config); // Fail startup early on invalid network settings.
+    transportOptions(this.config);
     const count = integerSetting(this.config, 'MEDIASOUP_WORKERS', Math.min(2, availableParallelism()), 1, 64);
     try {
       for (let i = 0; i < count; i++) await this.spawn();

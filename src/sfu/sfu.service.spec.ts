@@ -3,7 +3,6 @@ import { WorkerManager } from './worker-manager.service';
 import { SfuService } from './sfu.service';
 import type { RtpCapabilities, RtpParameters } from './sfu.types';
 
-// Uses the real native mediasoup Worker: no media objects are mocked.
 describe('SFU native resource lifecycle', () => {
   let workers: WorkerManager;
   let sfu: SfuService;
@@ -67,7 +66,6 @@ describe('SFU native resource lifecycle', () => {
       });
     });
     await sfu.closeResource('room', 'sender', 'producer', source.producerId);
-    // Native producerclose notification travels asynchronously over the Worker channel.
     await consumerClosed;
     expect(notification).toHaveBeenCalledWith(expect.objectContaining({ event: 'producer_closed' }));
     expect(sfu.listProducers('room', 'viewer')).toEqual([]);

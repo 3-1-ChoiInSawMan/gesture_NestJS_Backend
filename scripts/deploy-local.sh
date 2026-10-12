@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# act로 로컬 배포 workflow를 실행한다.
-# - EC2/SSH 대신 로컬 Docker에 배포한다.
-# - 환경값은 GitHub Actions와 같은 vars/secrets 컨텍스트로 주입한다.
 
 set -euo pipefail
 

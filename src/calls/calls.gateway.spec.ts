@@ -12,8 +12,6 @@ import { CallsService } from './calls.service';
 import { CallStateService } from './call-state.service';
 import { CallAiService } from './call-ai.service';
 
-// Minimal Engine.IO/Socket.IO client using the existing ws dependency.
-// This exercises actual Nest validation, guards, interceptors and ACK framing.
 class TestClient {
   private sequence = 0;
   private readonly callbacks = new Map<number, (response: unknown) => void>();

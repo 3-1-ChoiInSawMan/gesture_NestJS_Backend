@@ -12,7 +12,6 @@ export class MeetingsController {
     private readonly meetingsService: MeetingsService,
   ) {};
 
-  // 회의록 시작
   @UseGuards(JwtGuard)
   @Post('/start/calls/:roomIdx')
   async handleStartMeetingByCallSpec(
@@ -22,7 +21,6 @@ export class MeetingsController {
     return this.startMeeting(roomIdx, user);
   }
 
-  // 회의록 시작
   @UseGuards(JwtGuard)
   @Post('/start/rooms/:roomIdx')
   async handleStartMeeting(
@@ -44,7 +42,6 @@ export class MeetingsController {
     };
   }
 
-  // 회의록 종료 및 요약
   @UseGuards(JwtGuard)
   @Post('/:minutesIdx/end')
   async handleEndMeeting(
@@ -59,7 +56,6 @@ export class MeetingsController {
     };
   }
 
-  // 회의록 생성
   @UseGuards(JwtGuard)
   @Post('/calls/:roomIdx')
   async handleSaveMeetingMinutes(
@@ -75,7 +71,6 @@ export class MeetingsController {
     };
   }
 
-  // 회의록 저장 요청 발행
   @UseGuards(JwtGuard)
   @Post('/rooms/:roomIdx')
   async handleCreateMeetingMinutes(
@@ -91,7 +86,6 @@ export class MeetingsController {
     };
   }
 
-  // 통화방 회의록 목록 조회
   @UseGuards(JwtGuard)
   @Get('/rooms/:roomIdx')
   async handleGetMeetingMinutesByRoomIdx(
@@ -106,7 +100,6 @@ export class MeetingsController {
     };
   }
 
-  // 회의록 단건 조회
   @UseGuards(JwtGuard)
   @Get('/:minutesIdx')
   async handleGetMeetingMinutesByIdx(
@@ -121,7 +114,6 @@ export class MeetingsController {
     };
   }
 
-  // 회의록 수정
   @UseGuards(JwtGuard)
   @Patch('/:minutesIdx')
   async handleUpdateMeetingMinutes(

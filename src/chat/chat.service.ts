@@ -80,8 +80,6 @@ export class ChatService {
   public relayMessage(client: Socket,payload: ChatMessagePayloadDto) {
     const userIdx = this.getUser(client)?.idx;
 
-    this.logger.log({ userIdx, payload, rooms: [...client.rooms] }, '[chat] relayMessage called');
-
     if (!this.isValidIdx(payload.targetIdx) || !this.isValidIdx(userIdx)) {
       this.logger.warn({ userIdx, targetIdx: payload.targetIdx }, '[chat] CHAT_001: invalid idx');
       disconnectWithAuthError(client, 'CHAT_001');

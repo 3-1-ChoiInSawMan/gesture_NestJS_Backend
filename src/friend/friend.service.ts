@@ -54,12 +54,6 @@ export class FriendService {
   }
 
   public async getPendingFriendRequests(userIdx: number) {
-    /**
-     * BFF > Core 조회 요청 
-     * 응답 수신
-     * BFF > Client 요청 목록 반환
-     * 
-     */
     this.logger.debug('BFF → Core GET | 친구 요청 목록 조회');
 
     const response = await this.coreHttpService.get<GetPendingFriendRequestsDto>(`/friends`, {

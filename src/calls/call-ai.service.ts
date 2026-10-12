@@ -8,7 +8,6 @@ type Source = 'frame' | 'audio';
 interface Pending { source: Source; sessionId: string }
 export interface Translation { source: Source; callRoomIdx: number; sessionId: string; text: string }
 
-/** Adapter for the existing AI WebSocket protocol; unrelated to RTP forwarding. */
 @Injectable()
 export class CallAiService implements OnModuleInit, OnModuleDestroy {
   private socket?: WebSocket;
@@ -29,8 +28,6 @@ export class CallAiService implements OnModuleInit, OnModuleDestroy {
   send(source: Source, callRoomIdx: number, content: unknown, sessionId: string): { accepted: boolean } {
     if (this.socket?.readyState !== WebSocket.OPEN) return { accepted: false };
     const queue = this.pending.get(callRoomIdx) ?? [];
-    // The upstream protocol has no request ID. Keep unanswered requests so late
-    // responses are not reassigned to a newer session. Stop sending at the cap.
     if (queue.length >= 256) return { accepted: false };
     queue.push({ source, sessionId });
     this.pending.set(callRoomIdx, queue);

@@ -24,7 +24,6 @@ export interface MediaRoom {
 
 export interface SfuNotification {
   roomId: string;
-  /** Missing peerId means a room-wide notification. */
   peerId?: string;
   event: 'producer_closed' | 'producer_paused' | 'producer_resumed' | 'consumer_closed' | 'transport_closed' | 'media_room_closed';
   data: Record<string, unknown>;

@@ -12,12 +12,9 @@ import { MediasModule } from './medias/medias.module';
 import { CallsModule } from './calls/calls.module';
 import { CoreHttpModule } from './core-http/core-http.module';
 import { QuickSlotModule } from './quick-slot/quick-slot.module';
-<<<<<<< Updated upstream
 import { MeetingsModule } from './meetings/meetings.module';
 import { ChatRoomsModule } from './chat-rooms/chat-rooms.module';
-=======
 import { ChatModule } from './chat/chat.module';
->>>>>>> Stashed changes
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';

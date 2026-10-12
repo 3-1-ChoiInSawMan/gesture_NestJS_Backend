@@ -16,7 +16,6 @@ export class CallRoomsController {
     private readonly callRoomsService: CallRoomsService
   ) { };
 
-  // 통화방 참여
   @UseGuards(JwtGuard)
   @Post('/:roomIdx/join')
   async handleJoinCallRoom(
@@ -34,7 +33,6 @@ export class CallRoomsController {
     };
   }
 
-  // 통화방 생성
   @UseGuards(JwtGuard)
   @UseInterceptors(FileInterceptor('thumbnail_image'))
   @Post()
@@ -58,7 +56,6 @@ export class CallRoomsController {
     };
   }
 
-  // 통화방 목록 조회
   @Get()
   async handleGetCallRooms(
     @Query() query: GetCallRoomsQueryDto
@@ -73,7 +70,6 @@ export class CallRoomsController {
     };
   }
 
-  // 통화방 검색
   @Get('/search')
   async handleGetCallRoomByKeyword(
     @Query() query: GetCallRoomsByKeywordQueryDto
@@ -88,7 +84,6 @@ export class CallRoomsController {
     };
   }
 
-  // 통화방 상세 조회
   @Get('/:roomIdx')
   async handleGetCallRoomById(
     @Param('roomIdx', new ParseIntPipe()) roomIdx: number
@@ -103,7 +98,6 @@ export class CallRoomsController {
     };
   }
 
-  // 통화방 수정
   @UseGuards(JwtGuard)
   @UseInterceptors(FileInterceptor('thumbnail_image'))
   @Patch('/:roomIdx')
@@ -128,7 +122,6 @@ export class CallRoomsController {
     };
   }
 
-  // 통화방 삭제
   @UseGuards(JwtGuard)
   @Delete('/:roomIdx')
   async handleDeleteCallRoomById(
@@ -145,7 +138,6 @@ export class CallRoomsController {
     };
   }
 
-  // 통화방 나가기
   @UseGuards(JwtGuard)
   @Delete('/:roomIdx/leave')
   async handleLeaveCallRoomById(

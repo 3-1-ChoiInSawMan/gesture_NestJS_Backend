@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { CreateCallRoomDto } from './dto/request/create-call-room.dto';
-import { JoinCallRoomDto } from './dto/request/join-call-room.dto';
-import { GetCallRoomsQueryDto } from './dto/request/get-call-rooms-query.dto';
-import { GetCallRoomsByKeywordQueryDto } from './dto/request/get-call-room-by-keyword-query.dto';
-import { UpdateCallRoomDto } from './dto/request/update-call-room.dto';
+import { CreateCallRoomDto } from '../calls/rooms/dto/request/create-call-room.dto';
+import { JoinCallRoomDto } from '../calls/rooms/dto/request/join-call-room.dto';
+import { GetCallRoomsQueryDto } from '../calls/rooms/dto/request/get-call-rooms-query.dto';
+import { GetCallRoomsByKeywordQueryDto } from '../calls/rooms/dto/request/get-call-room-by-keyword-query.dto';
+import { UpdateCallRoomDto } from '../calls/rooms/dto/request/update-call-room.dto';
 import { MediasService } from 'src/medias/medias.service';
 import { CoreHttpService } from 'src/core-http/core-http.service';
 
-import { CreateCallRoomResponse } from './dto/core/response/CreateCallRoomResponse.interface';
-import { JoinRoomResponse } from './dto/core/response/JoinRoomResponse.interface';
-import { GetCallRoomsResponse } from './dto/core/response/GetCallRoomsResponse.interface';
+import { CreateCallRoomResponse } from '../calls/rooms/dto/core/response/CreateCallRoomResponse.interface';
+import { JoinRoomResponse } from '../calls/rooms/dto/core/response/JoinRoomResponse.interface';
+import { GetCallRoomsResponse } from '../calls/rooms/dto/core/response/GetCallRoomsResponse.interface';
 import { convertKeysToSnakeCase } from 'src/utils/convert-snake';
 
 @Injectable()

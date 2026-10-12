@@ -79,6 +79,5 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Disconnected: ${client.id}`);
-    // SocketIO가 room 단위로 자동으로 관리함
   }
 }

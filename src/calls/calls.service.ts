@@ -158,7 +158,6 @@ export class CallsService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  /** Called after a persistent room has been deleted by its authorized owner. */
   async closeRoom(callRoomIdx: number): Promise<void> {
     this.deletedRooms.add(callRoomIdx);
     for (const participant of this.state.snapshot(callRoomIdx).participants) {
