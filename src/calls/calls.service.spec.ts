@@ -1,119 +1,155 @@
 import { CallsService } from './calls.service';
+import { CallStateService } from './call-state.service';
+import type { Socket } from 'socket.io';
+import type { SfuNotification } from '../sfu/sfu.types';
+import type { Translation } from './call-ai.service';
 
-const mockSend = jest.fn();
-const mockOn = jest.fn();
-const mockWsInstances: Array<{ url: string; readyState: number }> = [];
-
-jest.mock('ws', () => {
-  class MockWebSocket {
-    static CONNECTING = 0;
-    static OPEN = 1;
-
-    readyState = MockWebSocket.OPEN;
-
-    constructor(public readonly url: string) {
-      mockWsInstances.push(this);
-    }
-
-    send = mockSend;
-    on = mockOn;
-  }
-
-  return {
-    __esModule: true,
-    default: MockWebSocket,
+function socket(id: string, userIdx = 11) {
+  const client = {
+    id, connected: true, rooms: new Set([id]),
+    data: { user: { idx: userIdx, exp: Date.now() / 1000 + 3600 }, callRoomIdx: undefined as number | undefined },
+    emit: jest.fn(), to: jest.fn().mockReturnValue({ emit: jest.fn() }),
+    join: jest.fn((room: string) => { client.rooms.add(room); }),
+    leave: jest.fn((room: string) => { client.rooms.delete(room); }),
   };
-});
+  return client as typeof client & Socket;
+}
 
-describe('CallsService audio relay', () => {
-  const createService = () => {
-    const service = new CallsService(
-      {} as never,
-      {
-        getOrThrow: jest.fn().mockReturnValue('ws://ai.example'),
-      } as never,
-      {
-        error: jest.fn(),
-        log: jest.fn(),
-        warn: jest.fn(),
-      } as never,
-    );
-
-    return service;
-  };
-
-  const createClient = (callRoomIdx = 7) => ({
-    id: 'socket-1',
-    data: {
-      callRoomIdx,
-      user: {
-        idx: 11,
-      },
-    },
-    emit: jest.fn(),
-    rooms: new Set(['socket-1', `call_room:${callRoomIdx}`]),
-  });
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockWsInstances.length = 0;
-  });
-
-  it('sends audio payloads to the AI WebSocket', () => {
-    const service = createService();
-    const audio = Buffer.from([1, 2, 3]);
-
-    service.sendAudio(
-      {
-        audio,
-        callRoomIdx: 7,
-      },
-      createClient() as never,
-    );
-
-    expect(mockWsInstances).toHaveLength(1);
-    expect(mockWsInstances[0].url).toBe('ws://ai.example/cc?debug=1&ignore_hands_down=1');
-    expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(mockSend.mock.calls[0][0])).toEqual({
-      audio: {
-        type: 'Buffer',
-        data: [1, 2, 3],
-      },
-      callRoomIdx: 7,
-    });
-    expect(mockSend.mock.calls[0][1]).toEqual(expect.any(Function));
-  });
-
-  it('emits AI audio responses as audio translations to the call room', () => {
-    const service = createService();
-    const roomEmit = jest.fn();
-    const server = {
-      to: jest.fn().mockReturnValue({
-        emit: roomEmit,
-      }),
+describe('CallsService lifecycle', () => {
+  const setup = () => {
+    const state = new CallStateService();
+    let mediaListener: (event: SfuNotification) => void;
+    let aiListener: (event: Translation) => void;
+    const sfu = {
+      join: jest.fn().mockResolvedValue({ rtpCapabilities: {}, existingProducers: [] }),
+      leave: jest.fn().mockResolvedValue(undefined), closeRoom: jest.fn(), listProducers: jest.fn().mockReturnValue([]),
+      createTransport: jest.fn().mockResolvedValue({ id: 'transport' }),
+      onNotification: jest.fn((listener) => { mediaListener = listener; return jest.fn(); }),
     };
+    const ai = { send: jest.fn(), onTranslation: jest.fn((listener) => { aiListener = listener; return jest.fn(); }) };
+    const core = {
+      get: jest.fn().mockResolvedValue({ data: { participants: [{ userIdx: 11, nickname: 'A' }, { userIdx: 12, nickname: 'B' }] } }),
+      post: jest.fn().mockResolvedValue({ data: {}, message: 'ok' }),
+    };
+    const service = new CallsService(core as never, sfu as never, state, ai as never, { error: jest.fn() } as never);
+    const emit = jest.fn();
+    service.setServer({ to: () => ({ emit }) } as never);
+    service.onModuleInit();
+    return { service, state, sfu, core, emit, media: (event: SfuNotification) => mediaListener(event), ai: (event: Translation) => aiListener(event) };
+  };
 
-    service.setServer(server as never);
+  it('transitions waiting -> active -> waiting -> ended', async () => {
+    const { service, state, sfu } = setup();
+    const a = socket('a'); const b = socket('b', 12);
+    await service.joinSession(a, 7);
+    expect(state.snapshot(7).status).toBe('waiting');
+    await service.joinSession(b, 7);
+    expect(state.snapshot(7).status).toBe('active');
+    await service.leaveSession(a, 7);
+    expect(state.snapshot(7).status).toBe('waiting');
+    await service.leaveSession(b, 7);
+    expect(state.snapshot(7)).toMatchObject({ status: 'ended', sessionId: null, participants: [] });
+    expect(sfu.leave).toHaveBeenCalledTimes(2);
+  });
 
-    service.sendAudio(
-      {
-        audio: Buffer.from([9, 8, 7]),
-        callRoomIdx: 7,
-      },
-      createClient() as never,
-    );
+  it('rejects nonparticipants without evicting their current call', async () => {
+    const { service, state, core, sfu } = setup();
+    const a = socket('a');
+    await service.joinSession(a, 7);
+    core.get.mockResolvedValueOnce({ data: { participants: [] } });
+    await expect(service.joinSession(a, 8)).rejects.toThrow('REST API');
+    expect(state.forSocket('a')?.callRoomIdx).toBe(7);
+    expect(sfu.leave).not.toHaveBeenCalled();
+  });
 
-    service['handleAiMessage'](
-      Buffer.from(JSON.stringify({
-        callRoomIdx: 7,
-        text: 'hello audio',
-      })),
-    );
+  it('replaces the old socket without an old disconnect removing the replacement', async () => {
+    const { service, state, core } = setup();
+    const old = socket('old'); const replacement = socket('new');
+    await service.joinSession(old, 7);
+    await service.joinSession(replacement, 7);
+    old.connected = false;
+    await service.disconnectSocket(old);
+    expect(state.snapshot(7).participants.map((peer) => peer.socketId)).toEqual(['new']);
+    expect(core.post).not.toHaveBeenCalled();
+  });
 
-    expect(server.to).toHaveBeenCalledWith('call_room:7');
-    expect(roomEmit).toHaveBeenCalledWith('audio_translation', {
-      callRoomIdx: 7,
-      text: 'hello audio',
+  it('cleans up even when Socket.IO has already cleared its rooms', async () => {
+    const { service, state, sfu, core } = setup();
+    const a = socket('a');
+    await service.joinSession(a, 7);
+    a.rooms.clear(); a.connected = false;
+    core.post.mockRejectedValueOnce(new Error('core offline'));
+    await service.disconnectSocket(a);
+    expect(sfu.leave).toHaveBeenCalledWith('7', 'a');
+    expect(state.snapshot(7).status).toBe('ended');
+  });
+
+  it('rolls back media when the socket disconnects during allocation', async () => {
+    const { service, state, sfu, core } = setup();
+    const a = socket('a');
+    sfu.join.mockImplementationOnce(async () => { a.connected = false; return {}; });
+    await expect(service.joinSession(a, 7)).rejects.toThrow('disconnected');
+    expect(sfu.leave).toHaveBeenCalledWith('7', 'a');
+    expect(state.forSocket('a')).toBeUndefined();
+    expect(core.post).toHaveBeenCalledWith('/calls/7/leave', undefined, { headers: { 'X-User-Id': 11 } });
+  });
+
+  it('releases Core membership when disconnect happens during authorization', async () => {
+    const { service, core, sfu } = setup(); const a = socket('a');
+    core.get.mockImplementationOnce(async () => {
+      a.connected = false;
+      return { data: { participants: [{ userIdx: 11, nickname: 'A' }] } };
     });
+    await expect(service.joinSession(a, 7)).rejects.toThrow('disconnected');
+    expect(sfu.join).not.toHaveBeenCalled();
+    expect(core.post).toHaveBeenCalledWith('/calls/7/leave', undefined, { headers: { 'X-User-Id': 11 } });
+  });
+
+  it('prevents an in-flight authorized join from reviving a deleted room', async () => {
+    const { service, sfu, state } = setup(); const a = socket('a');
+    sfu.join.mockImplementationOnce(async () => {
+      await service.closeRoom(7);
+      return { rtpCapabilities: {}, existingProducers: [] };
+    });
+    await expect(service.joinSession(a, 7)).rejects.toThrow('deleted');
+    expect(state.snapshot(7).status).toBe('ended');
+    expect(sfu.leave).toHaveBeenCalledWith('7', 'a');
+  });
+
+  it('rejects media operations before join and after leave', async () => {
+    const { service, sfu } = setup(); const a = socket('a');
+    await expect(service.createTransport(a, { direction: 'send' })).rejects.toThrow('Join a call first');
+    await service.joinSession(a, 7);
+    await service.createTransport(a, { direction: 'send' });
+    expect(sfu.createTransport).toHaveBeenCalledWith('7', 'a', 'send');
+    await service.leaveSession(a, 7);
+    await expect(service.createTransport(a, { direction: 'send' })).rejects.toThrow('Join a call first');
+  });
+
+  it('HTTP leave also removes the active media session', async () => {
+    const { service, state, sfu } = setup();
+    await service.joinSession(socket('a'), 7);
+    await service.leaveCall(7, 11);
+    expect(sfu.leave).toHaveBeenCalledWith('7', 'a');
+    expect(state.snapshot(7).status).toBe('ended');
+  });
+
+  it('invalidates sessions when a media worker closes its router', async () => {
+    const { service, state, media } = setup(); const a = socket('a');
+    await service.joinSession(a, 7);
+    media({ roomId: '7', event: 'media_room_closed', data: {} });
+    expect(state.snapshot(7).status).toBe('ended');
+    expect(a.emit).toHaveBeenCalledWith('media_room_closed', { callRoomIdx: 7 });
+  });
+
+  it('does not publish a translation from an ended session into a new call', async () => {
+    const { service, state, ai, emit } = setup(); const a = socket('a');
+    await service.joinSession(a, 7);
+    const previousId = state.snapshot(7).sessionId!;
+    await service.leaveSession(a, 7);
+    await service.joinSession(a, 7);
+    emit.mockClear();
+    ai({ source: 'audio', callRoomIdx: 7, sessionId: previousId, text: 'late' });
+    expect(emit).not.toHaveBeenCalled();
   });
 });

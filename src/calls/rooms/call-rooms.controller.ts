@@ -139,9 +139,7 @@ export class CallRoomsController {
 
     return {
       data: {
-        room: data,"numberOfElements": 5,
-    "first": true,
-    
+        room: data,
       },
       message
     };

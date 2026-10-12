@@ -7,14 +7,17 @@ import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { LoggerModule } from 'nestjs-pino';
 import { FriendModule } from './friend/friend.module';
-import { CallRoomsModule } from './call-rooms/call-rooms.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MediasModule } from './medias/medias.module';
 import { CallsModule } from './calls/calls.module';
 import { CoreHttpModule } from './core-http/core-http.module';
 import { QuickSlotModule } from './quick-slot/quick-slot.module';
+<<<<<<< Updated upstream
 import { MeetingsModule } from './meetings/meetings.module';
 import { ChatRoomsModule } from './chat-rooms/chat-rooms.module';
+=======
+import { ChatModule } from './chat/chat.module';
+>>>>>>> Stashed changes
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -41,10 +44,10 @@ const isDevelopment = process.env.NODE_ENV === 'development';
     AuthModule,
     UsersModule,
     FriendModule,
-    CallRoomsModule,
     NotificationsModule,
     MediasModule,
     CallsModule,
+    ChatModule,
     QuickSlotModule,
     MeetingsModule,
     ChatRoomsModule,

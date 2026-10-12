@@ -5,10 +5,20 @@ services:
     container_name: gesture-bff
     restart: unless-stopped
     env_file: .env
+    environment:
+      WEBRTC_LISTEN_IP: 0.0.0.0
+      WEBRTC_ANNOUNCED_IP: ${WEBRTC_ANNOUNCED_IP:?Set the externally reachable SFU IP}
+      MEDIASOUP_MIN_PORT: ${MEDIASOUP_MIN_PORT:-6002}
+      MEDIASOUP_MAX_PORT: ${MEDIASOUP_MAX_PORT:-6202}
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
+<<<<<<< Updated upstream
     networks:
       - gesture-net
+=======
+      - "${MEDIASOUP_MIN_PORT:-6002}-${MEDIASOUP_MAX_PORT:-6202}:${MEDIASOUP_MIN_PORT:-6002}-${MEDIASOUP_MAX_PORT:-6202}/udp"
+      - "${MEDIASOUP_MIN_PORT:-6002}-${MEDIASOUP_MAX_PORT:-6202}:${MEDIASOUP_MIN_PORT:-6002}-${MEDIASOUP_MAX_PORT:-6202}/tcp"
+>>>>>>> Stashed changes
 
   dozzle:
     image: amir20/dozzle:latest

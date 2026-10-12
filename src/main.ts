@@ -9,6 +9,7 @@ import { Logger } from 'nestjs-pino';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.enableShutdownHooks();
   const reflector = app.get(Reflector);
 
   app.useLogger(app.get(Logger));

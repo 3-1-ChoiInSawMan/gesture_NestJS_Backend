@@ -1,28 +1,32 @@
 ARG NODE_VERSION=24
 
-FROM node:${NODE_VERSION}-alpine AS install
+FROM node:${NODE_VERSION}-bookworm-slim AS install
 
 WORKDIR /opt/app
 
+# mediasoup downloads a native Worker, or builds it when no matching binary exists.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv build-essential ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --chown=node:node package*.json ./
 
-RUN npm ci 
+RUN npm ci
 
 # BUILD
 FROM install AS build
 
 COPY --chown=node:node tsconfig*.json ./
+COPY --chown=node:node nest-cli.json ./
 COPY --chown=node:node src src/
 
 RUN npm run build
 
-RUN rm -rf node_modules
-
-RUN npm ci --production && npm cache clean --force
+RUN npm prune --omit=dev && npm cache clean --force
 
 
 # RUNTIME
-FROM node:${NODE_VERSION}-alpine AS runtime
+FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 
 WORKDIR /opt/app
 RUN chown node:node /opt/app
@@ -35,5 +39,6 @@ RUN chown node:node /opt/app
 USER node
 
 EXPOSE 8080
+EXPOSE 6002-6202/udp 6002-6202/tcp
 
 CMD ["node", "dist/main"]

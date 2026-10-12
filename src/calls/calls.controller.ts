@@ -46,6 +46,16 @@ export class CallsController {
 
   // 통화 참여자 조회
   @UseGuards(JwtGuard)
+  @Get('/:roomIdx/state')
+  async handleGetCallState(
+    @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
+    @GetUser() user: JwtPayload,
+  ) {
+    return { data: { call: await this.callsService.getCallState(roomIdx, user.idx) } };
+  }
+
+  // 통화 참여자 조회
+  @UseGuards(JwtGuard)
   @Get('/:roomIdx/participants')
   async handleGetParticipantsByRoomIdx(
     @Param('roomIdx', new ParseIntPipe()) roomIdx: number,
