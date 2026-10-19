@@ -96,6 +96,13 @@ private handleMessage(data: RawData): void {
   const session = this.sessions.get(message.callRoomIdx);
   if (!session) return;
 
+  console.log(`Translate | ${{
+    source: session.source,
+    sessionId: session.sessionId,
+    callRoomIdx: message.callRoomIdx,
+    text: message.word,
+  }}`);
+
   this.events.emit('translation', {
     source: session.source,
     sessionId: session.sessionId,

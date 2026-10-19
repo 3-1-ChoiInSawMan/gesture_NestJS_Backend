@@ -216,6 +216,7 @@ export class CallsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private sendAi(client: Socket, roomIdx: number, source: 'frame' | 'audio', content: unknown) {
+    console.log(`sendA | roomIdx: ${roomIdx} | source: ${source} | content: ${content}`);
     const participant = this.requireParticipant(client);
     if (participant.callRoomIdx !== roomIdx) throw new ForbiddenException('Not a participant of this call');
     return this.ai.send(source, roomIdx, content, this.state.snapshot(roomIdx).sessionId!);
