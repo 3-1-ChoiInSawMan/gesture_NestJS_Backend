@@ -43,6 +43,25 @@ describe('SFU native resource lifecycle', () => {
     expect(dump.routerIds).toHaveLength(1);
   });
 
+  it('advertises the externally reachable address in ICE candidates', async () => {
+    const config = new ConfigService({
+      MEDIASOUP_WORKERS: 1, WEBRTC_LISTEN_IP: '0.0.0.0', WEBRTC_ANNOUNCED_IP: '203.0.113.10',
+      MEDIASOUP_MIN_PORT: 23000, MEDIASOUP_MAX_PORT: 23999,
+    });
+    const externalWorkers = new WorkerManager(config);
+    await externalWorkers.onModuleInit();
+    const externalSfu = new SfuService(externalWorkers, config);
+    try {
+      await externalSfu.join('external-room', 'peer');
+      const transport = await externalSfu.createTransport('external-room', 'peer', 'recv');
+      expect(transport.iceCandidates).not.toHaveLength(0);
+      expect(transport.iceCandidates.every((candidate) => candidate.ip === '203.0.113.10')).toBe(true);
+    } finally {
+      externalSfu.onModuleDestroy();
+      externalWorkers.onModuleDestroy();
+    }
+  });
+
   it('produces, consumes, resumes, pauses, restarts ICE and closes native resources', async () => {
     const source = await producer();
     const receive = await sfu.createTransport('room', 'viewer', 'recv');

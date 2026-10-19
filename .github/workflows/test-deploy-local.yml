@@ -49,6 +49,12 @@ jobs:
         if [ -z "$REDIS_URL" ] || [ "$REDIS_URL" = "redis://host.docker.internal:6379" ]; then
           REDIS_URL="redis://gesture-redis:6379"
         fi
+        SFU_ANNOUNCED_IP="${{ vars.WEBRTC_ANNOUNCED_IP }}"
+        SFU_ANNOUNCED_IP="${SFU_ANNOUNCED_IP:-127.0.0.1}"
+        SFU_MIN_PORT="${{ vars.MEDIASOUP_MIN_PORT }}"
+        SFU_MAX_PORT="${{ vars.MEDIASOUP_MAX_PORT }}"
+        SFU_MIN_PORT="${SFU_MIN_PORT:-6002}"
+        SFU_MAX_PORT="${SFU_MAX_PORT:-6202}"
         docker run --name "$DEPLOY_CONTAINER" \
         -e "NODE_ENV=${{ vars.NODE_ENV }}" \
         -e "SECURITY_PUBLIC_KEY=${{ secrets.SECURITY_PUBLIC_KEY }}" \
@@ -57,9 +63,15 @@ jobs:
         -e "AI_WS_URL=${{ vars.AI_WS_URL }}" \
         -e "REDIS_URL=$REDIS_URL" \
         -e "SERVER_PORT=${DEPLOY_PORT}" \
+        -e "WEBRTC_LISTEN_IP=0.0.0.0" \
+        -e "WEBRTC_ANNOUNCED_IP=$SFU_ANNOUNCED_IP" \
+        -e "MEDIASOUP_MIN_PORT=$SFU_MIN_PORT" \
+        -e "MEDIASOUP_MAX_PORT=$SFU_MAX_PORT" \
         --restart unless-stopped \
         --network gesture-net \
         -d -p "${DEPLOY_PORT}:${DEPLOY_PORT}" \
+        -p "$SFU_MIN_PORT-$SFU_MAX_PORT:$SFU_MIN_PORT-$SFU_MAX_PORT/udp" \
+        -p "$SFU_MIN_PORT-$SFU_MAX_PORT:$SFU_MIN_PORT-$SFU_MAX_PORT/tcp" \
         "$DEPLOY_IMAGE"
 
     - name: Check Service Health

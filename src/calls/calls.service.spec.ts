@@ -24,6 +24,8 @@ describe('CallsService lifecycle', () => {
       join: jest.fn().mockResolvedValue({ rtpCapabilities: {}, existingProducers: [] }),
       leave: jest.fn().mockResolvedValue(undefined), closeRoom: jest.fn(), listProducers: jest.fn().mockReturnValue([]),
       createTransport: jest.fn().mockResolvedValue({ id: 'transport' }),
+      produce: jest.fn(),
+      setProducerPaused: jest.fn(),
       onNotification: jest.fn((listener) => { mediaListener = listener; return jest.fn(); }),
     };
     const ai = { send: jest.fn(), onTranslation: jest.fn((listener) => { aiListener = listener; return jest.fn(); }) };
@@ -124,6 +126,26 @@ describe('CallsService lifecycle', () => {
     expect(sfu.createTransport).toHaveBeenCalledWith('7', 'a', 'send');
     await service.leaveSession(a, 7);
     await expect(service.createTransport(a, { direction: 'send' })).rejects.toThrow('Join a call first');
+  });
+
+  it('announces a camera started after both peers joined and exposes it for resync', async () => {
+    const { service, sfu, media, emit } = setup();
+    const sender = socket('a'); const viewer = socket('b', 12);
+    await service.joinSession(sender, 7);
+    await service.joinSession(viewer, 7);
+    const producer = { producerId: 'camera-1', peerId: 'a', kind: 'video', mediaTag: 'camera', paused: false };
+    sfu.produce.mockResolvedValueOnce(producer);
+    sfu.listProducers.mockReturnValue([producer]);
+
+    expect(await service.produce(sender, { transportId: 'send', kind: 'video', mediaTag: 'camera', rtpParameters: {} } as never))
+      .toEqual({ id: 'camera-1' });
+    expect(sender.to('call_room:7').emit).toHaveBeenCalledWith('new_producer', producer);
+    expect(await service.listProducers(viewer)).toEqual([producer]);
+
+    media({ roomId: '7', event: 'producer_resumed', data: { producerId: 'camera-1', peerId: 'a' } });
+    expect(emit).toHaveBeenCalledWith('producer_resumed', {
+      callRoomIdx: 7, producerId: 'camera-1', peerId: 'a',
+    });
   });
 
   it('HTTP leave also removes the active media session', async () => {
