@@ -5,7 +5,7 @@ import WebSocket, { type RawData } from 'ws';
 import { EventEmitter } from 'node:events';
 
 type Source = 'frame' | 'audio';
-interface Pending { source: Source; sessionId: string }
+interface Pending { source: Source; sessionId: string; }
 export interface Translation { source: Source; callRoomIdx: number; sessionId: string; text: string }
 
 @Injectable()
@@ -14,7 +14,7 @@ export class CallAiService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   private attempts = 0;
   private stopping = false;
-  private readonly pending = new Map<number, Pending[]>();
+  private readonly sessions = new Map<number, Pending>();
   private readonly events = new EventEmitter();
 
   constructor(private readonly config: ConfigService, private readonly logger: Logger) {}
@@ -26,16 +26,22 @@ export class CallAiService implements OnModuleInit, OnModuleDestroy {
   }
 
   send(source: Source, callRoomIdx: number, content: unknown, sessionId: string): { accepted: boolean } {
-    if (this.socket?.readyState !== WebSocket.OPEN) return { accepted: false };
-    const queue = this.pending.get(callRoomIdx) ?? [];
-    if (queue.length >= 256) return { accepted: false };
-    queue.push({ source, sessionId });
-    this.pending.set(callRoomIdx, queue);
-    this.socket.send(JSON.stringify({ [source]: content, callRoomIdx }), (error) => {
-      if (!error) return;
-      this.logger.error({ err: error }, 'AI WebSocket send failed');
-      this.socket?.terminate();
-    });
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      return { accepted: false };
+    }
+
+    this.sessions.set(callRoomIdx, { source, sessionId });
+
+    this.socket.send(
+      JSON.stringify({ [source]: content, callRoomIdx }),
+      (error) => {
+        if (!error) return;
+
+        this.logger.error({ err: error }, 'AI WebSocket send failed');
+        this.socket?.terminate();
+      },
+    );
+
     return { accepted: true };
   }
 
@@ -50,7 +56,7 @@ export class CallAiService implements OnModuleInit, OnModuleDestroy {
     socket.on('close', () => {
       if (this.socket !== socket) return;
       this.socket = undefined;
-      this.pending.clear();
+      this.sessions.clear();
       if (this.stopping) return;
       const delay = Math.min(1_000 * 2 ** this.attempts++, 30_000);
       this.timer = setTimeout(() => { this.timer = undefined; this.connect(); }, delay);
@@ -58,23 +64,51 @@ export class CallAiService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private handleMessage(data: RawData): void {
-    let message: { text?: unknown; callRoomIdx?: unknown };
-    const bytes = Array.isArray(data) ? Buffer.concat(data) : Buffer.isBuffer(data) ? data : Buffer.from(data);
-    try { message = JSON.parse(bytes.toString('utf8')) as typeof message; } catch { return; }
-    if (typeof message.callRoomIdx !== 'number' || !Number.isInteger(message.callRoomIdx)) return;
-    const queue = this.pending.get(message.callRoomIdx);
-    const request = queue?.shift();
-    if (!queue?.length) this.pending.delete(message.callRoomIdx);
-    if (!request || typeof message.text !== 'string' || !message.text) return;
-    this.events.emit('translation', { ...request, callRoomIdx: message.callRoomIdx, text: message.text });
+private handleMessage(data: RawData): void {
+  let message: {
+    type?: unknown;
+    word?: unknown;
+    callRoomIdx?: unknown;
+  };
+
+  const bytes = Array.isArray(data)
+    ? Buffer.concat(data)
+    : Buffer.isBuffer(data)
+      ? data
+      : Buffer.from(data);
+
+  try {
+    message = JSON.parse(bytes.toString('utf8'));
+  } catch {
+    return;
   }
+
+  if (
+    message.type !== 'word' ||
+    typeof message.callRoomIdx !== 'number' ||
+    !Number.isInteger(message.callRoomIdx) ||
+    typeof message.word !== 'string' ||
+    !message.word
+  ) {
+    return;
+  }
+
+  const session = this.sessions.get(message.callRoomIdx);
+  if (!session) return;
+
+  this.events.emit('translation', {
+    source: session.source,
+    sessionId: session.sessionId,
+    callRoomIdx: message.callRoomIdx,
+    text: message.word,
+  });
+}
 
   onModuleDestroy(): void {
     this.stopping = true;
     if (this.timer) clearTimeout(this.timer);
     this.socket?.terminate();
-    this.pending.clear();
+    this.sessions.clear();
     this.events.removeAllListeners();
   }
 }
