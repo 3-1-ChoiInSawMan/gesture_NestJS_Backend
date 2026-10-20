@@ -6,6 +6,8 @@ import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios';
 import { LoggerModule } from 'nestjs-pino';
+import { stdTimeFunctions } from 'pino';
+import type { IncomingMessage } from 'node:http';
 import { FriendModule } from './friend/friend.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MediasModule } from './medias/medias.module';
@@ -19,13 +21,22 @@ import { ChatModule } from './chat/chat.module';
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+const requestUrl = (req: IncomingMessage) => (req as IncomingMessage & { originalUrl?: string }).originalUrl ?? req.url;
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     LoggerModule.forRoot({
       pinoHttp: {
-        name: 'Capstone BFF',
         level: isProduction ? 'info' : 'debug',
+        redact: { paths: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'], censor: '[REDACTED]' },
+        serializers: {
+          req: (req: { id: unknown; method: string; url: string }) => ({ id: req.id, method: req.method, url: req.url }),
+          res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
+        },
+        customLogLevel: (_req, res, error) => (error || res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info'),
+        customSuccessMessage: (req, res, responseTime) => `${req.method} ${requestUrl(req)} ${res.statusCode} ${Math.round(responseTime)}ms`,
+        customErrorMessage: (req, res, error) => `${req.method} ${requestUrl(req)} ${res.statusCode} ${error.message}`,
         ...(isDevelopment
           ? {
             transport: {
@@ -33,7 +44,12 @@ const isDevelopment = process.env.NODE_ENV === 'development';
               options: {},
             },
           }
-          : {}),
+          // Dozzle: JSON 한 줄, 문자열 level, ISO 시간, pid/hostname 제거
+          : {
+            base: null,
+            timestamp: stdTimeFunctions.isoTime,
+            formatters: { level: (label: string) => ({ level: label }) },
+          }),
       },
     }),
     HttpModule,

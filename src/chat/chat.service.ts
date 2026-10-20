@@ -1,5 +1,4 @@
-import { Injectable } from "@nestjs/common";
-import { Logger } from "nestjs-pino";
+import { Injectable, Logger } from "@nestjs/common";
 import type { Socket } from 'socket.io';
 import type { JwtPayload } from "src/common/jwt-payload.interface";
 import { disconnectWithAuthError } from "src/common/ws-error.util";
@@ -7,9 +6,7 @@ import { ChatMessagePayloadDto, ChatRoomPayloadDto, ChatRoomType } from "./dto/c
 
 @Injectable()
 export class ChatService {
-  constructor(
-    private readonly logger: Logger,
-  ) { };
+  private readonly logger = new Logger(ChatService.name);
 
   /**
    * roomType에 따라 SocketIO 룸 이름 생성
@@ -54,7 +51,7 @@ export class ChatService {
 
     void client.join(roomName);
 
-    this.logger.log({ userIdx, payload, roomName, rooms: [...client.rooms] }, '[chat] joined room');
+    this.logger.debug({ userIdx, roomName }, 'Chat room joined');
   }
 
   public leaveRoom(client: Socket,payload: ChatRoomPayloadDto) {
@@ -81,7 +78,7 @@ export class ChatService {
     const userIdx = this.getUser(client)?.idx;
 
     if (!this.isValidIdx(payload.targetIdx) || !this.isValidIdx(userIdx)) {
-      this.logger.warn({ userIdx, targetIdx: payload.targetIdx }, '[chat] CHAT_001: invalid idx');
+      this.logger.warn({ userIdx, targetIdx: payload.targetIdx }, 'Chat message rejected (CHAT_001): invalid idx');
       disconnectWithAuthError(client, 'CHAT_001');
 
       return;
@@ -90,7 +87,7 @@ export class ChatService {
     const roomName = this.getRoomName(payload.roomType, payload.targetIdx, userIdx);
 
     if (!client.rooms.has(roomName)) {
-      this.logger.warn({ roomName, rooms: [...client.rooms] }, '[chat] CHAT_001: not in room');
+      this.logger.warn({ userIdx, roomName }, 'Chat message rejected (CHAT_001): not in room');
       disconnectWithAuthError(client, 'CHAT_001');
 
       return;

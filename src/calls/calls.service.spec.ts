@@ -33,7 +33,7 @@ describe('CallsService lifecycle', () => {
       get: jest.fn().mockResolvedValue({ data: { participants: [{ userIdx: 11, nickname: 'A' }, { userIdx: 12, nickname: 'B' }] } }),
       post: jest.fn().mockResolvedValue({ data: {}, message: 'ok' }),
     };
-    const service = new CallsService(core as never, sfu as never, state, ai as never, { error: jest.fn() } as never);
+    const service = new CallsService(core as never, sfu as never, state, ai as never);
     const emit = jest.fn();
     service.setServer({ to: () => ({ emit }) } as never);
     service.onModuleInit();

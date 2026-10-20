@@ -22,14 +22,17 @@ export class AxiosExceptionFilter implements ExceptionFilter {
     const code = data?.statusCode ?? data?.code ?? 'COMMON_500';
     const status = error.response?.status ?? 500;
 
-    this.logger.error(JSON.stringify({
+    const details = {
       method: error.config?.method?.toUpperCase(),
       url: error.config?.url,
       status,
       errorCode: code,
       axiosCode: error.code,
       message: data?.message ?? error.message,
-    }));
+    };
+    // Core가 4xx로 정상 거절한 요청은 warn, 응답 없음/5xx는 error
+    if (error.response && status < 500) this.logger.warn(details, 'Core request rejected');
+    else this.logger.error(details, 'Core request failed');
 
     response.status(status).json({
       success: false,
