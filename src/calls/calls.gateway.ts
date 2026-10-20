@@ -1,7 +1,6 @@
-import { UseFilters, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Logger, UseFilters, UseGuards, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
 import { TokenExpiredError } from '@nestjs/jwt';
 import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
-import { Logger } from 'nestjs-pino';
 import type { Server, Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service';
 import type { JwtPayload } from '../common/jwt-payload.interface';
@@ -23,8 +22,8 @@ export class CallsGateway implements OnGatewayConnection, OnGatewayDisconnect, O
   constructor(
     private readonly authService: AuthService,
     private readonly calls: CallsService,
-    private readonly logger: Logger,
   ) {}
+  private readonly logger = new Logger(CallsGateway.name);
 
   afterInit(server: Server): void { this.calls.setServer(server); }
 

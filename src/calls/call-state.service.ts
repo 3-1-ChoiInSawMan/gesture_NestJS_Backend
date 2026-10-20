@@ -44,6 +44,7 @@ export class CallStateService {
 
   forSocket(socketId: string) { return this.bySocket.get(socketId); }
   forUser(userIdx: number) { return this.byUser.get(userIdx); }
+  sessionId(callRoomIdx: number) { return this.rooms.get(callRoomIdx)?.id ?? null; }
 
   snapshot(callRoomIdx: number) {
     const room = this.rooms.get(callRoomIdx);

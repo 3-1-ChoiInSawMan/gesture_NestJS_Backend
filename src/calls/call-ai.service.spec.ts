@@ -18,10 +18,7 @@ describe('CallAiService', () => {
   let service: CallAiService;
   beforeEach(() => {
     mockSockets.length = 0;
-    service = new CallAiService(
-      { getOrThrow: () => 'ws://ai.example' } as never,
-      { error: jest.fn(), warn: jest.fn() } as never,
-    );
+    service = new CallAiService({ getOrThrow: () => 'ws://ai.example' } as never);
     service.onModuleInit();
   });
   afterEach(() => service.onModuleDestroy());

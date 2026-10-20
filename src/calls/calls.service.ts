@@ -1,5 +1,4 @@
-import { ForbiddenException, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Logger } from 'nestjs-pino';
+import { ForbiddenException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import type { Server, Socket } from 'socket.io';
 import type { JwtPayload } from '../common/jwt-payload.interface';
 import { KeyedSerialExecutor } from '../common/keyed-serial-executor';
@@ -23,19 +22,23 @@ export class CallsService implements OnModuleInit, OnModuleDestroy {
   private server?: Server;
   private unsubscribeMedia?: () => void;
   private unsubscribeAi?: () => void;
+  private readonly logger = new Logger(CallsService.name);
 
   constructor(
     private readonly core: CoreHttpService,
     private readonly sfu: SfuService,
     private readonly state: CallStateService,
     private readonly ai: CallAiService,
-    private readonly logger: Logger,
   ) {}
 
   onModuleInit(): void {
     this.unsubscribeMedia = this.sfu.onNotification((event) => this.mediaNotification(event));
     this.unsubscribeAi = this.ai.onTranslation((translation) => {
-      if (this.state.snapshot(translation.callRoomIdx).sessionId !== translation.sessionId) return;
+      const currentSessionId = this.state.sessionId(translation.callRoomIdx);
+      if (currentSessionId !== translation.sessionId) {
+        this.logger.debug({ ...translation, currentSessionId }, 'AI translation dropped: call session changed');
+        return;
+      }
       this.server?.to(this.roomName(translation.callRoomIdx)).emit(`${translation.source}_translation`, {
         callRoomIdx: translation.callRoomIdx, text: translation.text,
       });
@@ -216,10 +219,12 @@ export class CallsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private sendAi(client: Socket, roomIdx: number, source: 'frame' | 'audio', content: unknown) {
-    this.logger.log(`sendA | roomIdx: ${roomIdx} | source: ${source} | content: ${content}`);
     const participant = this.requireParticipant(client);
-    if (participant.callRoomIdx !== roomIdx) throw new ForbiddenException('Not a participant of this call');
-    return this.ai.send(source, roomIdx, content, this.state.snapshot(roomIdx).sessionId!);
+    if (participant.callRoomIdx !== roomIdx) {
+      this.logger.warn({ userIdx: participant.userIdx, joinedRoomIdx: participant.callRoomIdx, roomIdx, source }, 'AI send rejected: room mismatch');
+      throw new ForbiddenException('Not a participant of this call');
+    }
+    return this.ai.send(source, roomIdx, content, this.state.sessionId(roomIdx)!);
   }
 
   private mediaRequest<T>(client: Socket, operation: (roomId: string) => Promise<T>): Promise<T> {

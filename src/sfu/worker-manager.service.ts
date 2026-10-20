@@ -36,7 +36,7 @@ export class WorkerManager implements OnModuleInit, OnModuleDestroy {
     if (this.stopping) { worker.close(); return; }
     this.workers.push(worker);
     worker.on('died', (error) => {
-      this.logger.error(`Worker ${worker.pid} died`, error);
+      this.logger.error({ err: error, pid: worker.pid }, 'mediasoup worker died');
       const index = this.workers.indexOf(worker);
       if (index !== -1) this.workers.splice(index, 1);
       this.scheduleReplacement();
@@ -48,7 +48,7 @@ export class WorkerManager implements OnModuleInit, OnModuleDestroy {
     const timer = setTimeout(() => {
       this.retries.delete(timer);
       void this.spawn().catch((error: unknown) => {
-        this.logger.error('Worker replacement failed', error);
+        this.logger.error({ err: error }, 'mediasoup worker replacement failed');
         this.scheduleReplacement();
       });
     }, 1_000);

@@ -1,7 +1,6 @@
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Logger } from 'nestjs-pino';
 import WebSocket from 'ws';
 import type { AddressInfo } from 'node:net';
 import { AuthService } from '../auth/auth.service';
@@ -81,7 +80,6 @@ describe('CallsGateway Socket.IO integration', () => {
           post: async () => ({ data: {}, message: 'ok' }),
         } },
         { provide: CallAiService, useValue: { onTranslation: () => () => undefined } },
-        { provide: Logger, useValue: { error: jest.fn(), log: jest.fn(), warn: jest.fn() } },
       ],
     }).overrideProvider(ConfigService).useValue(new ConfigService({
       MEDIASOUP_WORKERS: 1, MEDIASOUP_MIN_PORT: 25000, MEDIASOUP_MAX_PORT: 25999, WEBRTC_LISTEN_IP: '127.0.0.1',

@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
@@ -7,6 +7,8 @@ type StreamValue = string | number | boolean | Date | null | undefined | unknown
 @Injectable()
 export class RedisStreamService implements OnModuleDestroy {
   private readonly redis: Redis;
+  private readonly logger = new Logger(RedisStreamService.name);
+  private failing = false;
 
   constructor(
     private readonly configService: ConfigService,
@@ -14,6 +16,16 @@ export class RedisStreamService implements OnModuleDestroy {
     this.redis = new Redis(this.getRedisUrl(), {
       enableOfflineQueue: false,
       maxRetriesPerRequest: 1,
+    });
+    // 재시도마다 찍히는 ioredis 기본 오류 출력 대신, 상태가 바뀔 때만 한 줄씩 남깁니다.
+    this.redis.on('ready', () => {
+      if (this.failing) this.logger.log('Redis connection recovered');
+      this.failing = false;
+    });
+    this.redis.on('error', (error) => {
+      if (this.failing) return;
+      this.failing = true;
+      this.logger.error({ err: error }, 'Redis connection error; retrying');
     });
   }
 
